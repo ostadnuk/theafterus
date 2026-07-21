@@ -102,6 +102,13 @@ function srcFor(kind, file){
   return encodeURI((kind==='intended' ? INT_DIR : UNI_DIR) + file);
 }
 
+// grid shows lightweight 640px thumbnails; the full image loads only in the lightbox
+function thumbSrc(kind, file){
+  const dir = kind==='intended' ? 'intentional' : 'not intentional';
+  const name = file.replace(/\.gif$/i, '.png');
+  return encodeURI('archives/thumbs/' + dir + '/' + name);
+}
+
 function buildGrid(){
   const grid = document.getElementById('grid');
   const w = grid.clientWidth, h = grid.clientHeight;
@@ -146,10 +153,12 @@ function swapCell(cell, initial=false){
       ? 'INTENDED · ' + file
       : '<span class="u">UNINTENDED</span> · ' + file;
   };
-  img.src = srcFor(kind, file);
+  img.onerror = ()=>{ img.onerror = null; img.src = srcFor(kind, file); };
+  img.src = thumbSrc(kind, file);
 }
 
 function tick(){
+  if(document.hidden){ setTimeout(tick, SWAP_EVERY); return; }
   // slow sinusoidal drift between the two archives
   const t = (performance.now()-t0)/DRIFT_PERIOD*2*Math.PI;
   bias = 0.5 + 0.42*Math.sin(t);
