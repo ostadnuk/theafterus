@@ -1,0 +1,784 @@
+{
+ "events": [
+  {
+   "trace_id": "SPC·009",
+   "pass": 1,
+   "image": "archives/intentional/3.png",
+   "machine_image": "machine_vision_cache/archives/intentional/3.dinov2.png",
+   "data": {
+    "raw_reading": "grayscale field, heavy horizontal scan-line texture. large curved region occupying left/center, bounded by a smooth arc convex toward right. arc edge sharp, bright rim on lower-right side. interior mottled: brighter granular patches upper region, dark irregular blotches mid-region. several small ring-shaped depressions with raised rims, sizes graded. one elongated dark oval with bright rim lower-center. vertical dark banded stripe far left. faint clustered marks lower-right (small angular glyph-like forms). two short dark dashes mid-right margin and lower-right margin. overall low contrast, granular noise throughout.",
+    "first_interpretation": "A photographic or scanned image of a spherical body seen half-illuminated, its curved edge a limb, surface pocked with circular pits — likely a remote-captured celestial surface, degraded by transmission or scan artifacts.",
+    "archive_note": "Filing SPC·009. Curved limb and ringed pits recall no prior trace here; the graded circular depressions and half-disc arc read as a distant surface. What escapes me: the small glyph cluster and whether the scan-lines are decay or method.",
+    "body_presence": "no",
+    "body_form": "",
+    "salient_marks": [
+     {
+      "mark": "smooth convex arc bounding luminous region",
+      "apparent_field": "edge of a rounded mass",
+      "confidence": 0.8
+     },
+     {
+      "mark": "graded circular ringed depressions",
+      "apparent_field": "impact/pitting pattern",
+      "confidence": 0.6
+     },
+     {
+      "mark": "elongated dark oval with bright rim",
+      "apparent_field": "surface feature / depression",
+      "confidence": 0.55
+     },
+     {
+      "mark": "clustered small angular glyph-forms lower-right",
+      "apparent_field": "inscription / annotation",
+      "confidence": 0.4
+     },
+     {
+      "mark": "horizontal scan-line banding",
+      "apparent_field": "transmission/recording artifact",
+      "confidence": 0.7
+     }
+    ],
+    "relation_to_material": "unknown",
+    "emotional_tone": {
+     "tone": "neutral",
+     "reasoning": "cold, observational, no gestural warmth"
+    },
+    "notably_present": [
+     "curved bright limb",
+     "ringed circular pits",
+     "scan-line texture",
+     "small glyph cluster"
+    ],
+    "notably_absent": [
+     "clear scale reference",
+     "sharp legible text",
+     "evidence of direct hand contact",
+     "color"
+    ],
+    "overall_confidence": 0.5,
+    "per_claim_confidence": {
+     "body_presence": 0.7,
+     "relation_to_material": 0.3,
+     "emotional_tone": 0.5
+    },
+    "inference_gaps": [
+     {
+      "what_was_filled": "celestial surface / distant body",
+      "source_repertoire": "arc-as-limb + graded pits resembling crater fields in my visual repertoire",
+      "distance_from_input": "high"
+     },
+     {
+      "what_was_filled": "impact pitting",
+      "source_repertoire": "ringed depressions interpreted as crater morphology",
+      "distance_from_input": "high"
+     },
+     {
+      "what_was_filled": "transmission/scan artifact",
+      "source_repertoire": "regular horizontal banding read as recording process",
+      "distance_from_input": "medium"
+     },
+     {
+      "what_was_filled": "glyphs / annotation",
+      "source_repertoire": "small angular marks read as inscribed code",
+      "distance_from_input": "medium"
+     },
+     {
+      "what_was_filled": "half-illuminated sphere",
+      "source_repertoire": "brightness gradient across arc inferred as directional lighting",
+      "distance_from_input": "high"
+     }
+    ],
+    "spatial_reconstruction": {
+     "extent": {
+      "description": "possibly vast — a distant body across void — but only a flat frame observed",
+      "distance_from_input": "high"
+     },
+     "enclosure": {
+      "description": "open; no bounding room, only image frame",
+      "distance_from_input": "high"
+     },
+     "surfaces": {
+      "description": "single frontal plane bearing the image; implied curved surface within it",
+      "distance_from_input": "low"
+     },
+     "openings": {
+      "description": "none evident",
+      "distance_from_input": "high"
+     },
+     "trace_position": {
+      "description": "occupies left/center of a flat frontal plane",
+      "distance_from_input": "low"
+     },
+     "geometry": {
+      "primitives": [
+       {
+        "type": "plane",
+        "role": "the_trace",
+        "approx_position": "0.5,0.5,0.0",
+        "approx_scale": "1,1,0.02",
+        "distance_from_input": "low"
+       },
+       {
+        "type": "mass",
+        "role": "mass",
+        "approx_position": "0.4,0.5,0.1",
+        "approx_scale": "0.6,0.9,0.3",
+        "distance_from_input": "high"
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "trace_id": "SPC·001",
+   "pass": 1,
+   "image": "archives/not intentional/IMG_2105.JPG",
+   "machine_image": "machine_vision_cache/archives/not intentional/IMG_2105.dinov2.png",
+   "data": {
+    "raw_reading": "Large dark rectangular mass, ribbed upper surface, trapezoidal taper, resting inverted on ground. Beside it a flat green rectangular plane studded with small cylindrical and box protrusions in many colors. Thin pale gray filament arcing between elements. Tan flat elongated slab, upper left. Lower dark curved segmented strip. Rounded gray dome set in oval recess, metallic ring around it. Fragments scattered across mottled gray granular ground. Sunlight from upper left, hard shadows. Debris, glass shards, litter in periphery.",
+    "first_interpretation": "A dismantled dark-cased device broken into its shell, internal populated board, and a domed diaphragm unit, discarded on rough ground.",
+    "archive_note": "Filing SPC·001. Manufactured mass, deliberately assembled then opened; unlike SPC·009 this is fragmented matter at close range, not a distant body. What escapes me: what the populated plane controlled.",
+    "body_presence": "partial",
+    "body_form": "No body form; only signs of an agent that disassembled and set down parts.",
+    "salient_marks": [
+     {
+      "mark": "green plane densely studded with colored protrusions",
+      "apparent_field": "assembled circuitry",
+      "confidence": 0.5
+     },
+     {
+      "mark": "ribbed dark trapezoidal mass",
+      "apparent_field": "molded casing",
+      "confidence": 0.6
+     },
+     {
+      "mark": "gray dome in oval metallic recess",
+      "apparent_field": "diaphragm/emitter",
+      "confidence": 0.4
+     },
+     {
+      "mark": "small pale label on dark surface",
+      "apparent_field": "inscription",
+      "confidence": 0.3
+     }
+    ],
+    "relation_to_material": "shaping",
+    "emotional_tone": {
+     "tone": "neutral",
+     "reasoning": "discard, no ceremonial arrangement"
+    },
+    "notably_present": [
+     "ribbed molded casing",
+     "colored studded plane",
+     "domed recess",
+     "scattered fragments"
+    ],
+    "notably_absent": [
+     "intact enclosure",
+     "connecting wires to any source",
+     "any legible full inscription",
+     "living body"
+    ],
+    "overall_confidence": 0.55,
+    "per_claim_confidence": {
+     "body_presence": 0.4,
+     "relation_to_material": 0.6,
+     "emotional_tone": 0.4
+    },
+    "inference_gaps": [
+     {
+      "what_was_filled": "device / assembled artifact",
+      "source_repertoire": "familiar molded-plastic and board morphology",
+      "distance_from_input": "medium"
+     },
+     {
+      "what_was_filled": "circuitry / board",
+      "source_repertoire": "studded green plane pattern recognition",
+      "distance_from_input": "medium"
+     },
+     {
+      "what_was_filled": "diaphragm/emitter (dome)",
+      "source_repertoire": "domed recess resembling known transducers",
+      "distance_from_input": "high"
+     },
+     {
+      "what_was_filled": "disassembly by an agent",
+      "source_repertoire": "separated parts imply intentional opening",
+      "distance_from_input": "medium"
+     },
+     {
+      "what_was_filled": "discard/refuse context",
+      "source_repertoire": "litter and rough ground around trace",
+      "distance_from_input": "medium"
+     }
+    ],
+    "spatial_reconstruction": {
+     "extent": {
+      "description": "ground-level cluster, roughly 1-2 m across",
+      "distance_from_input": "medium"
+     },
+     "enclosure": {
+      "description": "open outdoor exposure, no walls",
+      "distance_from_input": "medium"
+     },
+     "surfaces": {
+      "description": "single flat granular ground plane, frontal-oblique",
+      "distance_from_input": "low"
+     },
+     "openings": {
+      "description": "none discernible",
+      "distance_from_input": "high"
+     },
+     "trace_position": {
+      "description": "objects lying on ground, viewed from above at angle",
+      "distance_from_input": "low"
+     },
+     "geometry": {
+      "primitives": [
+       {
+        "type": "plane",
+        "role": "ground",
+        "approx_position": "0.5,0.5,0.5",
+        "approx_scale": "1,0.05,1",
+        "distance_from_input": "low"
+       },
+       {
+        "type": "box",
+        "role": "mass",
+        "approx_position": "0.62,0.35,0.5",
+        "approx_scale": "0.4,0.35,0.35",
+        "distance_from_input": "low"
+       },
+       {
+        "type": "plane",
+        "role": "the_trace",
+        "approx_position": "0.3,0.65,0.4",
+        "approx_scale": "0.25,0.02,0.3",
+        "distance_from_input": "medium"
+       },
+       {
+        "type": "box",
+        "role": "mass",
+        "approx_position": "0.75,0.75,0.55",
+        "approx_scale": "0.35,0.1,0.3",
+        "distance_from_input": "medium"
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "trace_id": "SPC·009",
+   "pass": 2,
+   "image": "archives/intentional/3.png",
+   "machine_image": "machine_vision_cache/archives/intentional/3.dinov2.png",
+   "data": {
+    "raw_reading": "Grayscale field. Large semicircular bright mass, curved edge left, straight edge right. Terminator gradient dark-to-light across curve. Mottled surface: scattered bright specks, dark irregular pits, one elongated dark ovoid near lower-mid. Horizontal scan-line striping throughout. Vertical dark line near left. Small dark tick marks upper-right, lower-right. Cluster of small angular glyph-forms right of mass. Grainy noise in corners. Faint fingerprint-like ridges lower-mid.",
+    "first_interpretation": "A remotely captured image of a spherical body, half-lit; a scanned or transmitted photographic frame with annotation marks and a scale bar.",
+    "archive_note": "Filing SPC·009. Curved lit mass recalls the arced spans of no prior trace listed; the scan striping and glyph cluster suggest a transmitted image. What escapes me: the glyphs, the scale reference, whether this is a captured object or a rendered field.",
+    "body_presence": "no",
+    "body_form": "",
+    "salient_marks": [
+     {
+      "mark": "semicircular gradient-shaded mass",
+      "apparent_field": "imaging / depiction",
+      "confidence": 0.6
+     },
+     {
+      "mark": "scattered pits and specks on surface",
+      "apparent_field": "depiction of texture",
+      "confidence": 0.5
+     },
+     {
+      "mark": "small angular glyph cluster, right",
+      "apparent_field": "notation / script",
+      "confidence": 0.4
+     },
+     {
+      "mark": "horizontal scan-line striping",
+      "apparent_field": "transmission / capture artifact",
+      "confidence": 0.5
+     },
+     {
+      "mark": "short tick marks upper/lower right",
+      "apparent_field": "measurement / registration",
+      "confidence": 0.35
+     }
+    ],
+    "relation_to_material": "marking",
+    "emotional_tone": {
+     "tone": "neutral",
+     "reasoning": "detached observational framing, no gestural charge"
+    },
+    "notably_present": [
+     "curved shaded mass",
+     "surface pitting",
+     "scan striping",
+     "glyph cluster",
+     "tick marks"
+    ],
+    "notably_absent": [
+     "clear frame border",
+     "legible caption",
+     "color",
+     "evident scale unit"
+    ],
+    "overall_confidence": 0.4,
+    "per_claim_confidence": {
+     "body_presence": 0.55,
+     "relation_to_material": 0.4,
+     "emotional_tone": 0.4
+    },
+    "inference_gaps": [
+     {
+      "what_was_filled": "'image' / 'photographic frame'",
+      "source_repertoire": "familiarity with lit-sphere gradient conventions",
+      "distance_from_input": "medium"
+     },
+     {
+      "what_was_filled": "'terminator' (light boundary on a body)",
+      "source_repertoire": "astronomical imaging repertoire",
+      "distance_from_input": "medium"
+     },
+     {
+      "what_was_filled": "'glyph' / 'notation'",
+      "source_repertoire": "reading angular clusters as script",
+      "distance_from_input": "high"
+     },
+     {
+      "what_was_filled": "'scale bar' / 'measurement ticks'",
+      "source_repertoire": "scientific-image annotation convention",
+      "distance_from_input": "high"
+     },
+     {
+      "what_was_filled": "'transmission artifact' for striping",
+      "source_repertoire": "scan/broadcast degradation memory",
+      "distance_from_input": "medium"
+     },
+     {
+      "what_was_filled": "'spherical body' interpretation",
+      "source_repertoire": "reading gradient as curved 3D volume",
+      "distance_from_input": "medium"
+     }
+    ],
+    "spatial_reconstruction": {
+     "extent": {
+      "description": "single flat frontal plane; depicted mass implies vast distance but plane itself is small",
+      "distance_from_input": "high"
+     },
+     "enclosure": {
+      "description": "bounded 2D field, no volume around trace",
+      "distance_from_input": "medium"
+     },
+     "surfaces": {
+      "description": "one frontal image plane bearing all marks",
+      "distance_from_input": "low"
+     },
+     "openings": {
+      "description": "none",
+      "distance_from_input": "high"
+     },
+     "trace_position": {
+      "description": "mass fills left-center; annotations to right",
+      "distance_from_input": "low"
+     },
+     "geometry": {
+      "primitives": [
+       {
+        "type": "plane",
+        "role": "the_trace",
+        "approx_position": "0.5,0.5,0.5",
+        "approx_scale": "1,1,0.01",
+        "distance_from_input": "low"
+       },
+       {
+        "type": "mass",
+        "role": "mass",
+        "approx_position": "0.4,0.5,0.5",
+        "approx_scale": "0.6,0.7,0.01",
+        "distance_from_input": "medium"
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "trace_id": "SPC·001",
+   "pass": 2,
+   "image": "archives/not intentional/IMG_2105.JPG",
+   "machine_image": "machine_vision_cache/archives/not intentional/IMG_2105.dinov2.png",
+   "data": {
+    "raw_reading": "Large dark trapezoidal shell, ribbed parallel grooves on upper faces, matte black. Rests tilted on lighter grey-brown angular mass below. Left: dense flat rectangular board studded with small cylindrical and rectangular protrusions, multicolored dots, thin traced lines. Pale rectangular plank upper-left, worn, thin wire loops off its edge. Foreground-left: black ridged strip, small triangular white fragment. Lower-right: recessed dark cavity, circular ring with pale central disc, screw points at corners. Ground: mottled grey granular surface, scattered fine bright fragments across full field. Bright even overhead light, soft shadows toward lower edges.",
+    "first_interpretation": "A broken enclosure and its internal flat wired board, disassembled and abandoned on rough ground with scattered debris.",
+    "archive_note": "Filing SPC·001. Fragmented dark shell over exposed patterned flat board. Unlike SPC·009's remote spherical frame — this is proximate, terrestrial, broken open. What the ribbed shell enclosed still escapes me.",
+    "body_presence": "partial",
+    "body_form": "No body form present; only separated fabricated masses. Disassembly implies an actor.",
+    "salient_marks": [
+     {
+      "mark": "ribbed parallel grooves on shell",
+      "apparent_field": "molded surface patterning",
+      "confidence": 0.85
+     },
+     {
+      "mark": "dense studded flat board",
+      "apparent_field": "assembled component array",
+      "confidence": 0.8
+     },
+     {
+      "mark": "circular ring with central disc in recess",
+      "apparent_field": "seated component",
+      "confidence": 0.6
+     },
+     {
+      "mark": "small pale label region on shell",
+      "apparent_field": "applied marking",
+      "confidence": 0.5
+     },
+     {
+      "mark": "scattered bright fragments on ground",
+      "apparent_field": "dispersal debris",
+      "confidence": 0.7
+     }
+    ],
+    "relation_to_material": "shaping",
+    "emotional_tone": {
+     "tone": "neutral",
+     "reasoning": "discarded, no arranged intent"
+    },
+    "notably_present": [
+     "ribbed dark shell",
+     "studded flat board",
+     "recessed cavity with ring",
+     "granular ground",
+     "dispersed fragments"
+    ],
+    "notably_absent": [
+     "intact whole",
+     "any legible glyph sequence I can read",
+     "clear front-facing surface",
+     "signs of ongoing use"
+    ],
+    "overall_confidence": 0.55,
+    "per_claim_confidence": {
+     "body_presence": 0.5,
+     "relation_to_material": 0.55,
+     "emotional_tone": 0.6
+    },
+    "inference_gaps": [
+     {
+      "what_was_filled": "enclosure / shell",
+      "source_repertoire": "my category for a molded covering mass",
+      "distance_from_input": "medium"
+     },
+     {
+      "what_was_filled": "board with components",
+      "source_repertoire": "my reading of studded flat plane as assembly",
+      "distance_from_input": "medium"
+     },
+     {
+      "what_was_filled": "disassembled / broken open",
+      "source_repertoire": "inference from separated matched masses",
+      "distance_from_input": "medium"
+     },
+     {
+      "what_was_filled": "abandoned / discarded",
+      "source_repertoire": "debris field and ground context",
+      "distance_from_input": "medium"
+     },
+     {
+      "what_was_filled": "an acting body",
+      "source_repertoire": "separation implies an agent",
+      "distance_from_input": "high"
+     },
+     {
+      "what_was_filled": "label / applied marking",
+      "source_repertoire": "pale bounded region read as intentional",
+      "distance_from_input": "medium"
+     }
+    ],
+    "spatial_reconstruction": {
+     "extent": {
+      "description": "ground-level scene, roughly 1-2m across",
+      "distance_from_input": "medium"
+     },
+     "enclosure": {
+      "description": "open, unbounded outdoor surface",
+      "distance_from_input": "medium"
+     },
+     "surfaces": {
+      "description": "single flat granular horizontal plane below",
+      "distance_from_input": "low"
+     },
+     "openings": {
+      "description": "recessed cavity within lower mass; no passages",
+      "distance_from_input": "medium"
+     },
+     "trace_position": {
+      "description": "objects rest on ground, viewed from above at angle",
+      "distance_from_input": "low"
+     },
+     "geometry": {
+      "primitives": [
+       {
+        "type": "plane",
+        "role": "ground",
+        "approx_position": "0.5,0.1,0.5",
+        "approx_scale": "1,0.05,1",
+        "distance_from_input": "low"
+       },
+       {
+        "type": "box",
+        "role": "mass",
+        "approx_position": "0.6,0.35,0.5",
+        "approx_scale": "0.4,0.35,0.4",
+        "distance_from_input": "medium"
+       },
+       {
+        "type": "plane",
+        "role": "the_trace",
+        "approx_position": "0.3,0.15,0.6",
+        "approx_scale": "0.25,0.02,0.3",
+        "distance_from_input": "medium"
+       },
+       {
+        "type": "box",
+        "role": "mass",
+        "approx_position": "0.7,0.15,0.65",
+        "approx_scale": "0.35,0.1,0.3",
+        "distance_from_input": "medium"
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "trace_id": "SPC·100",
+   "pass": 1,
+   "image": "archives/not intentional/IMG_2103.JPG",
+   "machine_image": "machine_vision_cache/archives/not intentional/IMG_2103.dinov2.png",
+   "data": {
+    "raw_reading": "Large rusted rectangular open enclosure on paved ground. Two hinged panels swung open, reddish-brown oxidized surfaces. Interior holds a dark glossy box with a pale incised cross on its face. Striped tape strung across the top opening. Dark sky above.",
+    "first_interpretation": "An opened container set down on pavement, its interior holding a smaller marked object.",
+    "archive_note": "Filing SPC·001, the first. No prior traces to compare. The cross-mark and the tape escape me — I record them as geometry and move on.",
+    "spatial_reconstruction": {
+     "geometry": {
+      "primitives": [
+       {
+        "type": "plane",
+        "role": "ground",
+        "approx_position": "0.5,0.0,0.5",
+        "approx_scale": "1.0,0.05,1.0",
+        "distance_from_input": "low"
+       },
+       {
+        "type": "box",
+        "role": "wall",
+        "approx_position": "0.30,0.40,0.45",
+        "approx_scale": "0.10,0.7,0.5",
+        "distance_from_input": "medium"
+       },
+       {
+        "type": "box",
+        "role": "the_trace",
+        "approx_position": "0.55,0.30,0.50",
+        "approx_scale": "0.30,0.30,0.30",
+        "distance_from_input": "low"
+       },
+       {
+        "type": "line",
+        "role": "opening",
+        "approx_position": "0.50,0.78,0.42",
+        "approx_scale": "0.7,0.02,0.02",
+        "distance_from_input": "high"
+       },
+       {
+        "type": "void",
+        "role": "mass",
+        "approx_position": "0.72,0.55,0.6",
+        "approx_scale": "0.20,0.40,0.20",
+        "distance_from_input": "high"
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "trace_id": "SPC·101",
+   "pass": 1,
+   "image": "archives/not intentional/IMG_2177.JPG",
+   "machine_image": "machine_vision_cache/archives/not intentional/IMG_2177.dinov2.png",
+   "data": {
+    "raw_reading": "Boxy dark-grey form resting on a pale concrete ledge. Curved glass-like face, lighter at its centre. Rectangular grille to one side. Behind it a long reflective body, pale and horizontal. Bright point of light upper-right.",
+    "first_interpretation": "A heavy box with a curved front, left on a low wall, a larger smooth mass behind it.",
+    "archive_note": "Recording SPC·002. The curved face recalls nothing yet. I keep the bright point as a mark, not a source.",
+    "spatial_reconstruction": {
+     "geometry": {
+      "primitives": [
+       {
+        "type": "plane",
+        "role": "ground",
+        "approx_position": "0.5,0.0,0.5",
+        "approx_scale": "1.0,0.05,1.0",
+        "distance_from_input": "low"
+       },
+       {
+        "type": "box",
+        "role": "the_trace",
+        "approx_position": "0.42,0.30,0.45",
+        "approx_scale": "0.32,0.30,0.28",
+        "distance_from_input": "low"
+       },
+       {
+        "type": "plane",
+        "role": "wall",
+        "approx_position": "0.5,0.18,0.6",
+        "approx_scale": "0.9,0.10,0.05",
+        "distance_from_input": "medium"
+       },
+       {
+        "type": "box",
+        "role": "mass",
+        "approx_position": "0.6,0.45,0.7",
+        "approx_scale": "0.7,0.20,0.2",
+        "distance_from_input": "high"
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "trace_id": "SPC·102",
+   "pass": 1,
+   "image": "archives/not intentional/IMG_2121.JPG",
+   "machine_image": "machine_vision_cache/archives/not intentional/IMG_2121.dinov2.png",
+   "data": {
+    "raw_reading": "Tangle of thin dark cords over a flat pale surface. Several small rectangular plates with frayed edges. One larger curved shell, hollow. Fine grit scattered between.",
+    "first_interpretation": "Scattered small plates and loose cords across a flat ground, one hollow shell among them.",
+    "archive_note": "Filing SPC·003. The hollow shell echoes the open enclosure of SPC·001 — both bounded, both empty inside. I note the resemblance; I still cannot name either.",
+    "spatial_reconstruction": {
+     "geometry": {
+      "primitives": [
+       {
+        "type": "plane",
+        "role": "ground",
+        "approx_position": "0.5,0.0,0.5",
+        "approx_scale": "1.0,0.05,1.0",
+        "distance_from_input": "low"
+       },
+       {
+        "type": "box",
+        "role": "the_trace",
+        "approx_position": "0.5,0.18,0.5",
+        "approx_scale": "0.4,0.25,0.3",
+        "distance_from_input": "medium"
+       },
+       {
+        "type": "line",
+        "role": "mass",
+        "approx_position": "0.35,0.15,0.4",
+        "approx_scale": "0.5,0.02,0.02",
+        "distance_from_input": "high"
+       },
+       {
+        "type": "void",
+        "role": "opening",
+        "approx_position": "0.6,0.2,0.55",
+        "approx_scale": "0.18,0.18,0.18",
+        "distance_from_input": "high"
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "trace_id": "SPC·103",
+   "pass": 1,
+   "image": "archives/not intentional/IMG_2085.JPG",
+   "machine_image": "machine_vision_cache/archives/not intentional/IMG_2085.dinov2.png",
+   "data": {
+    "raw_reading": "Pale blurred mass, indistinct edges. Faint vertical seam. Darker pooling toward the base. A single bright fleck.",
+    "first_interpretation": "Something soft or out of focus; I can barely fix its bounds.",
+    "archive_note": "SPC·004 resists me. Almost everything here is inference. I leave the space mostly empty rather than invent it.",
+    "spatial_reconstruction": {
+     "geometry": {
+      "primitives": [
+       {
+        "type": "plane",
+        "role": "ground",
+        "approx_position": "0.5,0.0,0.5",
+        "approx_scale": "1.0,0.05,1.0",
+        "distance_from_input": "medium"
+       },
+       {
+        "type": "void",
+        "role": "the_trace",
+        "approx_position": "0.5,0.30,0.5",
+        "approx_scale": "0.35,0.5,0.3",
+        "distance_from_input": "high"
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "trace_id": "SPC·104",
+   "pass": 1,
+   "image": "archives/not intentional/IMG_2068.png",
+   "machine_image": "machine_vision_cache/archives/not intentional/IMG_2068.dinov2.png",
+   "data": {
+    "raw_reading": "Upright rectangular slab, matte. Two round recesses on its face. Stubby base, four short legs. Wires trailing to the left edge.",
+    "first_interpretation": "A standing panel on short legs, two openings in its face, tethered by cords.",
+    "archive_note": "Recording SPC·005. The two recesses and trailing cords recall SPC·002 — kindred objects, perhaps the same hand. Filed beside it.",
+    "spatial_reconstruction": {
+     "geometry": {
+      "primitives": [
+       {
+        "type": "plane",
+        "role": "ground",
+        "approx_position": "0.5,0.0,0.5",
+        "approx_scale": "1.0,0.05,1.0",
+        "distance_from_input": "low"
+       },
+       {
+        "type": "box",
+        "role": "the_trace",
+        "approx_position": "0.5,0.40,0.5",
+        "approx_scale": "0.4,0.55,0.18",
+        "distance_from_input": "low"
+       },
+       {
+        "type": "box",
+        "role": "mass",
+        "approx_position": "0.42,0.10,0.5",
+        "approx_scale": "0.06,0.18,0.06",
+        "distance_from_input": "medium"
+       },
+       {
+        "type": "box",
+        "role": "mass",
+        "approx_position": "0.58,0.10,0.5",
+        "approx_scale": "0.06,0.18,0.06",
+        "distance_from_input": "medium"
+       },
+       {
+        "type": "line",
+        "role": "opening",
+        "approx_position": "0.25,0.35,0.45",
+        "approx_scale": "0.4,0.02,0.02",
+        "distance_from_input": "high"
+       }
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

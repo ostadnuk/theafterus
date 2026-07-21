@@ -1,0 +1,70 @@
+{
+  "model": "facebook/dinov2-small",
+  "representation": "PCA of patch embeddings; brightness = feature deviation; seams = neighbouring feature-space discontinuity",
+  "items": [
+    {
+      "source": "archives/not intentional/IMG_2105.JPG",
+      "machine_view": "machine_vision_cache/archives/not intentional/IMG_2105.dinov2.png"
+    },
+    {
+      "source": "archives/not intentional/IMG_2103.JPG",
+      "machine_view": "machine_vision_cache/archives/not intentional/IMG_2103.dinov2.png"
+    },
+    {
+      "source": "archives/not intentional/IMG_2177.JPG",
+      "machine_view": "machine_vision_cache/archives/not intentional/IMG_2177.dinov2.png"
+    },
+    {
+      "source": "archives/not intentional/IMG_2121.JPG",
+      "machine_view": "machine_vision_cache/archives/not intentional/IMG_2121.dinov2.png"
+    },
+    {
+      "source": "archives/not intentional/IMG_2085.JPG",
+      "machine_view": "machine_vision_cache/archives/not intentional/IMG_2085.dinov2.png"
+    },
+    {
+      "source": "archives/not intentional/IMG_2068.png",
+      "machine_view": "machine_vision_cache/archives/not intentional/IMG_2068.dinov2.png"
+    },
+    {
+      "source": "archives/not intentional/IMG_2120.JPG",
+      "machine_view": "machine_vision_cache/archives/not intentional/IMG_2120.dinov2.png"
+    },
+    {
+      "source": "archives/not intentional/IMG_2171.JPG",
+      "machine_view": "machine_vision_cache/archives/not intentional/IMG_2171.dinov2.png"
+    },
+    {
+      "source": "archives/intentional/3.png",
+      "machine_view": "machine_vision_cache/archives/intentional/3.dinov2.png"
+    },
+    {
+      "source": "archives/intentional/4.png",
+      "machine_view": "machine_vision_cache/archives/intentional/4.dinov2.png"
+    },
+    {
+      "source": "archives/intentional/6.png",
+      "machine_view": "machine_vision_cache/archives/intentional/6.dinov2.png"
+    },
+    {
+      "source": "archives/intentional/7.png",
+      "machine_view": "machine_vision_cache/archives/intentional/7.dinov2.png"
+    },
+    {
+      "source": "archives/intentional/9.png",
+      "machine_view": "machine_vision_cache/archives/intentional/9.dinov2.png"
+    },
+    {
+      "source": "archives/intentional/0.png",
+      "machine_view": "machine_vision_cache/archives/intentional/0.dinov2.png"
+    },
+    {
+      "source": "archives/intentional/11.png",
+      "machine_view": "machine_vision_cache/archives/intentional/11.dinov2.png"
+    },
+    {
+      "source": "archives/intentional/2.png",
+      "machine_view": "machine_vision_cache/archives/intentional/2.dinov2.png"
+    }
+  ]
+}

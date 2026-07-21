@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>the machine</title>
+<style>
+  :root{
+    --bg:#050607; --ink:#d2d6da; --dim:#6a727b; --line:#16181B;
+    --hot:#DADFE6; --warn:#C3401F;
+    --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+  }
+  html,body{ margin:0; height:100%; background:var(--bg); overflow:hidden;
+    font-family:var(--mono); }
+  iframe{ position:fixed; inset:0; width:100%; height:100%; border:0;
+    opacity:0; transition:opacity 3.2s ease; pointer-events:none; }
+  iframe.front{ opacity:1; pointer-events:auto; }
+  /* during the shift a brief horizontal scan passes — restrained, no bloom */
+  #veil{ position:fixed; inset:0; z-index:8; pointer-events:none; opacity:0;
+    background:linear-gradient(180deg,transparent 0%,rgba(218,223,230,.08) 50%,transparent 100%);
+    background-size:100% 300%; }
+  #veil.on{ opacity:1; animation:sweep 3.2s linear; }
+  @keyframes sweep{ from{ background-position:0 -100%; } to{ background-position:0 200%; } }
+  nav{ position:fixed; top:12px; left:16px; z-index:10; display:flex; gap:18px;
+    font-size:10px; letter-spacing:.22em; text-transform:uppercase; }
+  nav a{ color:var(--dim); text-decoration:none; }
+  nav a.here{ color:var(--hot); }
+  nav a:hover{ color:var(--hot); }
+  #mode{ position:fixed; top:12px; right:16px; z-index:10; font-size:9px;
+    letter-spacing:.18em; text-transform:uppercase; color:var(--dim);
+    pointer-events:none; }
+  #mode b{ color:var(--hot); font-weight:normal; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="here" href="machine.html">MACHINE</a>
+  <a href="archive.html">ARCHIVE</a>
+</nav>
+<div id="mode">REGISTER · <b id="modename">—</b></div>
+<div id="veil"></div>
+
+<iframe id="fa" src="decoder.html" title="machine vision register"></iframe>
+<iframe id="fb" src="decoder-june.html" title="primitives register"></iframe>
+
+<script>
+const SHIFT_EVERY = 170_000;   // ms between register shifts — slow dramaturgy
+const NAMES = { fa:'MACHINE VISION · DINOv2', fb:'PRIMITIVES · 2026-06-19' };
+const a = document.getElementById('fa');
+const b = document.getElementById('fb');
+const veil = document.getElementById('veil');
+const modeEl = document.getElementById('modename');
+let front = a;
+
+function show(el){
+  front = el;
+  a.classList.toggle('front', el===a);
+  b.classList.toggle('front', el===b);
+  modeEl.textContent = NAMES[el.id];
+}
+function shift(){
+  veil.classList.add('on');
+  setTimeout(()=>veil.classList.remove('on'), 3300);
+  show(front===a ? b : a);
+}
+show(a);
+setInterval(shift, SHIFT_EVERY);
+</script>
+</body>
+</html>

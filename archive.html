@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>trace archive</title>
+<style>
+  :root{
+    --bg:#050607; --panel:#0a0b0d; --ink:#d2d6da; --dim:#6a727b; --line:#16181B;
+    --hot:#DADFE6; --warn:#C3401F;
+    --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+  }
+  html,body{ margin:0; height:100%; background:var(--bg); color:var(--ink);
+    font-family:var(--mono); overflow:hidden; }
+
+  /* ---- chrome ---- */
+  .bar{ position:fixed; left:0; right:0; z-index:5; display:flex;
+    justify-content:space-between; align-items:baseline; gap:16px;
+    padding:0 16px; pointer-events:none; }
+  #topbar{ top:12px; }
+  #botbar{ bottom:10px; }
+  .label{ font-size:10px; letter-spacing:.22em; text-transform:uppercase;
+    color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #title{ color:var(--hot); }
+  #title small{ color:var(--dim); letter-spacing:.22em; }
+  #counts{ text-align:right; }
+  #drift{ font-size:9px; letter-spacing:.08em; }
+  #legend{ font-size:9px; letter-spacing:.05em; text-align:right; line-height:1.7; }
+  #legend b{ color:var(--ink); font-weight:normal; }
+  #legend .u{ color:var(--warn); }
+  @media (max-width:700px){ #legend{ display:none; } #counts{ display:none; } }
+
+  /* ---- grid ---- */
+  #grid{ position:fixed; inset:34px 0 30px 0; display:grid; gap:1px;
+    background:var(--bg); padding:1px; }
+  .cell{ position:relative; overflow:hidden; background:var(--panel);
+    border:1px solid var(--line); cursor:pointer; }
+  .cell img{ position:absolute; inset:0; width:100%; height:100%;
+    object-fit:cover; display:block;
+    filter:grayscale(.12) contrast(1.02) brightness(1.08);
+    opacity:0; transition:opacity 1.6s ease; }
+  .cell img.instant{ transition-duration:.35s; }
+  .cell img.on{ opacity:1; }
+  .cell .tag{ position:absolute; left:6px; bottom:5px; z-index:3; font-size:8px;
+    letter-spacing:.18em; text-transform:uppercase; color:var(--hot);
+    background:rgba(5,6,7,.72); padding:2px 5px; opacity:0;
+    transition:opacity .25s ease; pointer-events:none; }
+  .cell:hover .tag{ opacity:1; }
+  .cell .tag .u{ color:var(--warn); }
+  /* scan shimmer during swap — restrained, no bloom */
+  .cell .scan{ position:absolute; inset:0; z-index:2; pointer-events:none; opacity:0;
+    background:linear-gradient(180deg,transparent 0%,rgba(218,223,230,.14) 50%,transparent 100%);
+    background-size:100% 300%; }
+  .cell.swapping .scan{ opacity:1; animation:sweep 1.6s linear; }
+  @keyframes sweep{ from{ background-position:0 -100%; } to{ background-position:0 200%; } }
+
+  /* ---- lightbox ---- */
+  #box{ position:fixed; inset:0; z-index:20; display:none; background:rgba(5,6,7,.94); }
+  #box.open{ display:flex; align-items:center; justify-content:center; flex-direction:column; gap:14px; }
+  #box img{ max-width:82vw; max-height:74vh; border:1px solid var(--line);
+    filter:grayscale(.08) contrast(1.02); }
+  #boxmeta{ font-size:10px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--dim); text-align:center; line-height:2; }
+  #boxmeta b{ color:var(--hot); font-weight:normal; }
+  #boxmeta .he{ display:block; direction:rtl; font-size:11px; letter-spacing:.04em;
+    text-transform:none; color:var(--ink); opacity:.85; }
+</style>
+</head>
+<body>
+
+<div class="bar" id="topbar">
+  <div class="label" id="title"><a href="machine.html" style="color:inherit;text-decoration:none;color:#6a727b">MACHINE</a>&nbsp;&nbsp;<span style="color:#DADFE6">ARCHIVE</span> <small id="total">· —</small></div>
+  <div class="label" id="counts">—</div>
+</div>
+<div class="bar" id="botbar">
+  <div class="label" id="drift">DRIFT · —</div>
+  <div class="label" id="legend"><b>intended</b> → deposited signal &nbsp;·&nbsp; <span class="u">unintended</span> → residue</div>
+</div>
+
+<div id="grid"></div>
+
+<div id="box"><img id="boximg" alt=""><div id="boxmeta"></div></div>
+
+<script>
+const INT_DIR = 'archives/intentional/';
+const UNI_DIR = 'archives/not intentional/';
+
+let pools = { intended:[], unintended:[] };
+let cells = [];
+let bias = 0.5;              // 0 = all unintended, 1 = all intended
+let t0 = performance.now();
+const DRIFT_PERIOD = 90_000; // full oscillation, slow
+const SWAP_EVERY   = 1400;   // one cell swap cadence (ms)
+
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+function chooseArchive(){
+  return Math.random() < bias ? 'intended' : 'unintended';
+}
+
+function srcFor(kind, file){
+  return encodeURI((kind==='intended' ? INT_DIR : UNI_DIR) + file);
+}
+
+function buildGrid(){
+  const grid = document.getElementById('grid');
+  const w = grid.clientWidth, h = grid.clientHeight;
+  const target = 200; // desired cell size
+  const cols = Math.max(2, Math.round(w/target));
+  const rows = Math.max(2, Math.round(h/target));
+  grid.style.gridTemplateColumns = `repeat(${cols},1fr)`;
+  grid.style.gridTemplateRows = `repeat(${rows},1fr)`;
+  grid.innerHTML = '';
+  cells = [];
+  for(let i=0;i<cols*rows;i++){
+    const c = document.createElement('div');
+    c.className = 'cell';
+    c.innerHTML = '<div class="scan"></div><div class="tag"></div>';
+    c.addEventListener('click', ()=>openBox(c));
+    grid.appendChild(c);
+    cells.push(c);
+  }
+  // initial fill: fast — the page must not open onto a void
+  cells.forEach((c,i)=> setTimeout(()=>swapCell(c,true), i*40 + Math.random()*250));
+}
+
+function swapCell(cell, initial=false){
+  const kind = chooseArchive();
+  const file = pick(pools[kind]);
+  const img = new Image();
+  img.onload = ()=>{
+    const old = cell.querySelectorAll('img');
+    img.className = initial ? 'instant' : '';
+    cell.insertBefore(img, cell.querySelector('.tag'));
+    requestAnimationFrame(()=>{
+      img.classList.add('on');
+      if(!initial) cell.classList.add('swapping');
+      setTimeout(()=>{
+        old.forEach(o=>o.remove());
+        cell.classList.remove('swapping');
+      }, 1700);
+    });
+    cell.dataset.kind = kind;
+    cell.dataset.file = file;
+    cell.querySelector('.tag').innerHTML = kind==='intended'
+      ? 'INTENDED · ' + file
+      : '<span class="u">UNINTENDED</span> · ' + file;
+  };
+  img.src = srcFor(kind, file);
+}
+
+function tick(){
+  // slow sinusoidal drift between the two archives
+  const t = (performance.now()-t0)/DRIFT_PERIOD*2*Math.PI;
+  bias = 0.5 + 0.42*Math.sin(t);
+  const pct = Math.round(bias*100);
+  document.getElementById('drift').textContent =
+    `DRIFT · INTENDED ${pct}% · UNINTENDED ${100-pct}%`;
+  if(cells.length) swapCell(pick(cells));
+  // occasionally a small cluster turns over together — the "matrix" moment
+  if(Math.random() < 0.06){
+    const start = Math.floor(Math.random()*cells.length);
+    for(let k=0;k<4;k++){
+      const c = cells[(start+k)%cells.length];
+      setTimeout(()=>swapCell(c), k*260);
+    }
+  }
+  setTimeout(tick, SWAP_EVERY);
+}
+
+function openBox(cell){
+  if(!cell.dataset.file) return;
+  const box = document.getElementById('box');
+  document.getElementById('boximg').src = srcFor(cell.dataset.kind, cell.dataset.file);
+  document.getElementById('boxmeta').innerHTML =
+    (cell.dataset.kind==='intended'
+      ? '<b>INTENDED DEPOSIT</b> · ' : '<b style="color:var(--warn)">UNINTENDED RESIDUE</b> · ')
+    + cell.dataset.file
+    + '<span class="he">מקור לא מתועד — למילוי</span>';
+  box.classList.add('open');
+}
+document.getElementById('box').addEventListener('click',
+  ()=>document.getElementById('box').classList.remove('open'));
+addEventListener('keydown', e=>{ if(e.key==='Escape')
+  document.getElementById('box').classList.remove('open'); });
+
+addEventListener('resize', ()=>{ clearTimeout(window.__rz);
+  window.__rz = setTimeout(buildGrid, 300); });
+
+fetch('archive_images.json')
+  .then(r=>r.json())
+  .then(j=>{
+    pools.intended = j['intentional'];
+    pools.unintended = j['not intentional'];
+    const total = pools.intended.length + pools.unintended.length;
+    document.getElementById('total').textContent = `· ${total} TRACES`;
+    document.getElementById('counts').textContent =
+      `INTENDED ${pools.intended.length} · UNINTENDED ${pools.unintended.length}`;
+    buildGrid();
+    tick();
+  });
+</script>
+</body>
+</html>

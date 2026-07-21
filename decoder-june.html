@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+<script src="replay_player.js"></script>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Trace Decoder — API / primitives / 2026-06-19</title>
+  <style>
+    :root {
+      --bg:#090a0c;
+      --panel:rgba(10,11,13,.88);
+      --ink:#d4d7d9;
+      --dim:#70767d;
+      --line:#25292e;
+      --gold:#b39a69;
+      --red:#9a5043;
+      --green:#71897d;
+      --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+    }
+    * { box-sizing:border-box; }
+    html,body { width:100%; height:100%; margin:0; overflow:hidden; }
+    body { background:var(--bg); color:var(--ink); font-family:var(--mono); }
+
+    #stage {
+      position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+      gap:24px; padding:34px; pointer-events:none;
+    }
+    .station {
+      position:relative; border:1px solid var(--line); border-radius:3px;
+      background:var(--panel); box-shadow:0 30px 80px rgba(0,0,0,.52);
+      overflow:hidden;
+    }
+    #reading {
+      width:min(430px,35vw); min-height:650px; padding:17px 18px 20px;
+      opacity:0; transform:scale(.985);
+      transition:opacity .55s ease,transform .55s ease;
+    }
+    #reading.live { opacity:1; transform:scale(1); }
+    #worldbox { width:min(680px,55vw); height:min(700px,86vh); background:#050607; }
+    #scene { display:block; width:100%; height:100%; }
+    .label {
+      font-size:10px; line-height:1; letter-spacing:.22em; text-transform:uppercase;
+      color:var(--dim); margin-bottom:13px;
+    }
+    #reading .label { color:var(--gold); }
+    #worldbox .label { position:absolute; z-index:2; top:15px; left:17px; }
+    .blink { animation:blink 1.1s steps(2) infinite; }
+    @keyframes blink { 50% { opacity:.22; } }
+
+    #trace-frame {
+      position:relative; width:100%; height:240px; overflow:hidden;
+      background:#000; border:1px solid var(--line);
+    }
+    #trace-image {
+      display:block; width:100%; height:100%; object-fit:cover;
+      transform-origin:center; will-change:transform;
+      filter:grayscale(.12) contrast(1.04);
+    }
+    #voice { margin-top:15px; min-height:330px; }
+    #voice p { margin:0 0 10px; white-space:pre-wrap; }
+    #observed { color:var(--ink); font-size:11.5px; line-height:1.58; }
+    #interpreted { color:var(--dim); font-size:11px; line-height:1.52; font-style:italic; }
+    #gaps { color:var(--red); font-size:10px; line-height:1.5; }
+    #archive-note { color:var(--gold); font-size:10.5px; line-height:1.55; }
+    .gap { display:block; margin-top:4px; }
+    .caret::after { content:"▍"; color:var(--gold); animation:blink 1s steps(2) infinite; }
+
+    #connection {
+      position:fixed; left:14px; bottom:11px; color:var(--dim);
+      font-size:9px; letter-spacing:.08em;
+    }
+    #legend {
+      position:fixed; right:14px; bottom:10px; color:var(--dim);
+      font-size:9px; line-height:1.7; text-align:right; letter-spacing:.04em;
+    }
+    #legend b { color:var(--ink); }
+    #legend .low { color:var(--green); }
+    #legend .medium { color:var(--gold); }
+    #legend .high { color:var(--red); }
+
+    @media (max-width:900px) {
+      #stage { gap:12px; padding:16px; }
+      #reading { width:40vw; padding:12px; }
+      #worldbox { width:56vw; }
+      #trace-frame { height:190px; }
+    }
+  </style>
+</head>
+<body>
+  <main id="stage">
+    <section id="reading" class="station" aria-live="polite">
+      <div id="reading-label" class="label">reading new trace<span class="blink">…</span></div>
+      <div id="trace-frame"><img id="trace-image" alt="current trace" /></div>
+      <div id="voice">
+        <p id="observed"></p>
+        <p id="interpreted"></p>
+        <p id="gaps"></p>
+        <p id="archive-note"></p>
+      </div>
+    </section>
+
+    <section id="worldbox" class="station">
+      <div class="label">reconstruction</div>
+      <canvas id="scene"></canvas>
+    </section>
+  </main>
+
+  <div id="connection">connecting…</div>
+  <div id="legend">
+    <b>solidity = distance from input</b><br />
+    <span class="low">observed → solid</span> &nbsp;·&nbsp;
+    <span class="medium">uncertain → translucent</span> &nbsp;·&nbsp;
+    <span class="high">invented → ghost</span>
+  </div>
+
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.js" } }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+    const TARGET_MS = 30000;
+
+    // ── Three.js reconstruction ────────────────────────────────────────────
+    const canvas = document.querySelector('#scene');
+    const worldbox = document.querySelector('#worldbox');
+    const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:false});
+    renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x050607);
+    scene.fog = new THREE.FogExp2(0x050607,.018);
+
+    const camera = new THREE.PerspectiveCamera(48,1,.1,500);
+    scene.add(new THREE.AmbientLight(0xaeb4b7,.52));
+    const key = new THREE.DirectionalLight(0xe2e4e5,1.45);
+    key.position.set(-7,11,8);
+    scene.add(key);
+    const fillLight = new THREE.DirectionalLight(0x697581,.45);
+    fillLight.position.set(8,4,-5);
+    scene.add(fillLight);
+
+    const grid = new THREE.GridHelper(90,45,0x25292e,0x171a1e);
+    grid.position.y = -.04;
+    scene.add(grid);
+
+    const world = new THREE.Group();
+    scene.add(world);
+    const bounds = new THREE.Box3();
+    const center = new THREE.Vector3();
+    const size = new THREE.Vector3();
+
+    function resize() {
+      const w = worldbox.clientWidth;
+      const h = worldbox.clientHeight;
+      renderer.setSize(w,h,false);
+      camera.aspect = w/h;
+      camera.updateProjectionMatrix();
+    }
+    addEventListener('resize',resize);
+    resize();
+
+    const SCALE = 7;
+    const BOUND = 7;
+    let walker = new THREE.Vector3();
+
+    function vector(value,fallback=.5) {
+      const parts = Array.isArray(value) ? value : String(value ?? '').split(',');
+      return [0,1,2].map(index => {
+        const n = Number(parts[index]);
+        return Number.isFinite(n) ? n : fallback;
+      });
+    }
+
+    function primitiveGeometry(type,w,h,d) {
+      switch (String(type || 'box').toLowerCase()) {
+        case 'plane': return new THREE.BoxGeometry(w,Math.max(h,.05),Math.max(d,.05));
+        case 'line': return new THREE.BoxGeometry(Math.max(w,.06),Math.max(h,.06),Math.max(d,.06));
+        case 'sphere': return new THREE.SphereGeometry(Math.max(w,h,d)*.5,18,12);
+        case 'cylinder': return new THREE.CylinderGeometry(Math.max(w,d)*.5,Math.max(w,d)*.5,h,14);
+        case 'cone': return new THREE.ConeGeometry(Math.max(w,d)*.5,h,14);
+        default: return new THREE.BoxGeometry(w,h,d);
+      }
+    }
+
+    const roleColor = role => ({
+      ground:0x68716c,
+      wall:0x7a7f82,
+      opening:0x866759,
+      mass:0x626b73,
+      the_trace:0xb39a69,
+      trace:0xb39a69,
+    })[String(role || '').toLowerCase()] || 0x767d82;
+
+    function primitiveMaterial(primitive) {
+      const distance = String(primitive.distance_from_input || 'high').toLowerCase();
+      const color = roleColor(primitive.role);
+      if (distance === 'low') {
+        return new THREE.MeshStandardMaterial({
+          color,roughness:.76,metalness:.06,transparent:false,opacity:1
+        });
+      }
+      if (distance === 'medium') {
+        return new THREE.MeshStandardMaterial({
+          color,roughness:.82,metalness:0,transparent:true,opacity:.36,depthWrite:false
+        });
+      }
+      return new THREE.MeshBasicMaterial({
+        color:0x9a5043,wireframe:true,transparent:true,opacity:.22,depthWrite:false
+      });
+    }
+
+    function nextCluster() {
+      const step = new THREE.Vector3(
+        Math.random()-.5,
+        (Math.random()-.5)*.28,
+        Math.random()-.5
+      );
+      if (step.lengthSq() < .001) step.set(1,0,0);
+      step.normalize().multiplyScalar(2+Math.random()*1.7);
+      walker.add(step).multiplyScalar(.62); // free wander with a pull back to centre
+      if (walker.length() > BOUND) walker.setLength(BOUND);
+      walker.y = Math.max(0,walker.y);
+
+      const group = new THREE.Group();
+      group.position.copy(walker);
+      group.scale.setScalar(.001);
+      group.userData.growing = true;
+      world.add(group);
+      return group;
+    }
+
+    function addPrimitive(group,primitive) {
+      const [px,py,pz] = vector(primitive.approx_position,.5);
+      const [sx,sy,sz] = vector(primitive.approx_scale,.2);
+      const w = Math.max(sx,.02)*SCALE;
+      const h = Math.max(sy,.02)*SCALE;
+      const d = Math.max(sz,.02)*SCALE;
+      const mesh = new THREE.Mesh(
+        primitiveGeometry(primitive.type,w,h,d),
+        primitiveMaterial(primitive)
+      );
+      mesh.position.set((px-.5)*SCALE,py*SCALE,(pz-.5)*SCALE);
+      mesh.rotation.y = (Math.random()-.5)*.12;
+      group.add(mesh);
+    }
+
+    async function buildTrace(reading,span=18000) {
+      const primitives = reading?.spatial_reconstruction?.geometry?.primitives || [];
+      if (!primitives.length) return;
+      const group = nextCluster();
+      const gap = Math.min(2600,span/primitives.length);
+      for (const primitive of primitives) {
+        addPrimitive(group,primitive);
+        await sleep(gap);
+      }
+    }
+
+    function addTraceInstant(reading) {
+      const primitives = reading?.spatial_reconstruction?.geometry?.primitives || [];
+      if (!primitives.length) return;
+      const group = nextCluster();
+      primitives.forEach(primitive => addPrimitive(group,primitive));
+      group.scale.setScalar(1);
+      group.userData.growing = false;
+    }
+
+    let time = 0;
+    function render() {
+      requestAnimationFrame(render);
+      time += .0013;
+
+      world.children.forEach(group => {
+        if (!group.userData.growing) return;
+        const s = group.scale.x+(1-group.scale.x)*.075;
+        group.scale.setScalar(s);
+        if (s>.995) {
+          group.scale.setScalar(1);
+          group.userData.growing = false;
+        }
+      });
+
+      bounds.setFromObject(world);
+      if (bounds.isEmpty()) {
+        center.set(0,1.8,0);
+        size.set(9,7,9);
+      } else {
+        bounds.getCenter(center);
+        bounds.getSize(size);
+      }
+      const maxDim = Math.max(9,size.x,size.y,size.z);
+      const fov = THREE.MathUtils.degToRad(camera.fov);
+      const fitDistance = (maxDim*.5)/Math.tan(fov*.5);
+      const radius = Math.max(17,fitDistance*1.6);
+      const drift = time*.32;
+      camera.position.set(
+        center.x+Math.sin(drift)*radius,
+        center.y+Math.max(7,maxDim*.42),
+        center.z+Math.cos(drift)*radius
+      );
+      camera.lookAt(center.x,center.y+Math.min(1.3,maxDim*.08),center.z);
+      renderer.render(scene,camera);
+    }
+    render();
+
+    // ── one ephemeral reading card ─────────────────────────────────────────
+    const readingEl = document.querySelector('#reading');
+    const labelEl = document.querySelector('#reading-label');
+    const imageEl = document.querySelector('#trace-image');
+    const observedEl = document.querySelector('#observed');
+    const interpretedEl = document.querySelector('#interpreted');
+    const gapsEl = document.querySelector('#gaps');
+    const noteEl = document.querySelector('#archive-note');
+    const connectionEl = document.querySelector('#connection');
+    let examining = false;
+    let generation = 0;
+
+    async function typeText(el,text,speed,token) {
+      el.textContent = '';
+      el.classList.add('caret');
+      const output = String(text || '').replace(/\.\s+/g,'.\n');
+      for (let index=0; index<output.length; index++) {
+        if (token !== generation) return false;
+        const ch = output[index];
+        el.textContent += ch;
+        await sleep(speed+Math.random()*speed*.5);
+        if (ch === '\n') await sleep(900+Math.random()*1400);
+        else if (ch === ' ' && Math.random()<.07) await sleep(700+Math.random()*1900);
+      }
+      el.classList.remove('caret');
+      return true;
+    }
+
+    async function examine(token) {
+      examining = true;
+      while (examining && token === generation) {
+        const scale = 1.06+Math.random()*.74;
+        const move = 2000+Math.random()*900;
+        const margin = (scale-1)*50;
+        const x = (Math.random()*2-1)*margin*.9;
+        const y = (Math.random()*2-1)*margin*.9;
+        imageEl.style.transition = `transform ${move}ms cubic-bezier(.37,0,.2,1)`;
+        imageEl.style.transform = `translate(${x}%,${y}%) scale(${scale})`;
+        await sleep(move+3000+Math.random()*3000);
+      }
+    }
+
+    function stopExamine() {
+      examining = false;
+      imageEl.style.transition = 'transform .7s ease';
+      imageEl.style.transform = 'translate(0,0) scale(1)';
+    }
+
+    function imagePath(message) {
+      const value = message.image || '';
+      if (!value) return '';
+      if (/^(https?:|data:|\/)/.test(value)) return encodeURI(value);
+      return encodeURI('/'+value);
+    }
+
+    function renderGaps(reading) {
+      gapsEl.innerHTML = '';
+      for (const gap of reading.inference_gaps || []) {
+        const line = document.createElement('span');
+        line.className = 'gap';
+        line.textContent = `↳ ${gap.what_was_filled || 'unresolved inference'} · ${gap.distance_from_input || 'unknown'}`;
+        gapsEl.appendChild(line);
+      }
+    }
+
+    async function showTrace(message) {
+      const started = performance.now();
+      const token = ++generation;
+      const data = message.data || {};
+      const traceId = message.trace_id || data._trace_id || 'SPC·—';
+      stopExamine();
+      observedEl.textContent = interpretedEl.textContent = noteEl.textContent = '';
+      gapsEl.innerHTML = '';
+      imageEl.src = imagePath(message);
+      labelEl.innerHTML = 'reading new trace<span class="blink">…</span>';
+      readingEl.classList.add('live');
+      examine(token);
+      await sleep(550);
+      buildTrace(data,18000);
+
+      const raw = String(data.raw_reading || '').trim();
+      const opening = raw ? `I see ${raw.charAt(0).toLowerCase()}${raw.slice(1)}` : 'I see';
+      if (!await typeText(observedEl,opening,70,token)) return;
+      await sleep(850);
+      if (data.first_interpretation) {
+        if (!await typeText(interpretedEl,`→ ${data.first_interpretation}`,78,token)) return;
+        await sleep(850);
+      }
+      renderGaps(data);
+      if (gapsEl.textContent) await sleep(900);
+
+      const cleanNote = String(data.archive_note || '')
+        .replace(/^\s*(Filing|Recording|I record|I am recording)\s+SPC·\d{3}[,.]?\s*/i,'')
+        .replace(/^\s*SPC·\d{3}\s*/i,'')
+        .trim();
+      const filing = `Filing ${traceId}.${cleanNote ? ' '+cleanNote : ''}`;
+      if (!await typeText(noteEl,filing,90,token)) return;
+      labelEl.textContent = 'filed to archive';
+
+      const elapsed = performance.now()-started;
+      await sleep(Math.max(1800,TARGET_MS-elapsed-700));
+      if (token !== generation) return;
+      stopExamine();
+      readingEl.classList.remove('live');
+      await sleep(700);
+    }
+
+    const queue = [];
+    let busy = false;
+    let seen = 0;
+    let filed = 0;
+
+    async function pump() {
+      if (busy) return;
+      busy = true;
+      while (queue.length) {
+        while (queue.length>3) {
+          addTraceInstant(queue.shift().data);
+          filed++;
+        }
+        await showTrace(queue.shift());
+        filed++;
+        connectionEl.textContent = `${seen} traces received · ${filed} filed`;
+      }
+      busy = false;
+    }
+
+    function connect() {
+      const wsPort = new URLSearchParams(location.search).get('ws') || '8765';
+      const socket = new WebSocket(`ws://${location.hostname || '127.0.0.1'}:${wsPort}`);
+      socket.onopen = () => connectionEl.textContent = 'connected';
+      socket.onerror = () => socket.close();
+      socket.onclose = () => {
+        connectionEl.textContent = 'reconnecting…';
+        setTimeout(connect,1500);
+      };
+      socket.onmessage = event => {
+        let message;
+        try { message = JSON.parse(event.data); } catch { return; }
+        // Native June messages were `trace`. `trace_done` keeps the restored
+        // interface compatible with the later mock/live server as well.
+        if (message.type !== 'trace' && message.type !== 'trace_done') return;
+        seen++;
+        connectionEl.textContent = `${seen} traces received · ${filed} filed`;
+        queue.push(message);
+        pump();
+      };
+    }
+    connect();
+  </script>
+</body>
+</html>

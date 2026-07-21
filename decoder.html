@@ -1,0 +1,936 @@
+<!doctype html>
+<meta charset="utf-8" />
+<script src="replay_player.js"></script>
+<title>trace decoder</title>
+<style>
+  :root {
+    --bg:#0a0b0d; --ink:#d2d6da; --dim:#6a727b; --line:#1b1f24;
+    --hot:#DADFE6; --warn:#C3401F; --ok:#DADFE6;
+    --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--ink);
+    font-family:var(--mono); overflow:hidden; }
+  /* two framed stations side by side: the reading, and the world it builds */
+  #stage { position:fixed; inset:0; z-index:1; display:flex; gap:24px;
+    align-items:center; justify-content:center; pointer-events:none; }
+  #worldbox { position:relative; flex:none; width:640px; height:680px;
+    border:1px solid var(--line); border-radius:3px; overflow:hidden;
+    background:#050607; box-shadow:0 30px 80px rgba(0,0,0,.55); }
+  #scene { display:block; width:100%; height:100%; }
+  .wlabel { position:absolute; top:11px; left:14px; z-index:2; font-size:10px;
+    letter-spacing:.22em; text-transform:uppercase; color:var(--dim); pointer-events:none; }
+
+  /* the reading station — one trace at a time, appears then vanishes */
+  #station {
+    position:relative; z-index:2; flex:none; width:440px; align-self:center;
+    background:linear-gradient(180deg,rgba(10,11,13,.86),rgba(10,11,13,.78));
+    border:1px solid var(--line); border-radius:3px;
+    padding:16px 18px 18px;
+    opacity:0; transform:scale(.985); pointer-events:none;
+    transition:opacity .55s ease, transform .55s ease;
+    box-shadow:0 30px 80px rgba(0,0,0,.55);
+  }
+  #station.live { opacity:1; transform:scale(1); }
+
+  #label { font-size:10px; letter-spacing:.22em; text-transform:uppercase;
+    color:var(--hot); margin-bottom:11px; }
+  #label .blink { animation:blink 1.1s steps(2) infinite; }
+  @keyframes blink { 50%{ opacity:.25; } }
+
+  #frame { position:relative; overflow:hidden; height:230px; background:#000; border:1px solid var(--line); }
+  #frame.encoding::before {
+    content:""; position:absolute; left:0; right:0; top:-30%; height:30%;
+    background:linear-gradient(180deg,transparent,rgba(218,223,230,.22),transparent);
+    animation:scanline 1.1s linear infinite; z-index:2; pointer-events:none;
+  }
+  #frame.encoding #trace-img {
+    image-rendering:pixelated; filter:grayscale(1) contrast(1.6);
+    transform:scale(.18); transform-origin:center center;
+  }
+  #frame.waiting #trace-img { opacity:.08; filter:grayscale(1) contrast(.8); }
+  @keyframes scanline { to { transform:translateY(520%); } }
+  #trace-img { display:block; width:100%; height:100%; object-fit:cover;
+    transform-origin:center center; will-change:transform;
+    filter:grayscale(.15) contrast(1.02); }
+
+  #voice { margin-top:13px; min-height:96px; }
+  #voice p { margin:0 0 7px; white-space:pre-wrap; }
+  .geo   { font-size:11.5px; line-height:1.55; color:var(--ink); }
+  .guess { font-size:11px; line-height:1.5; color:var(--dim); font-style:italic; }
+  .invented { font-size:11px; line-height:1.55; color:var(--warn); }
+  .invented-line { display:block; padding-left:8px; border-left:2px solid transparent; }
+  .invented-line.finding { animation:finding-line 3s ease-out 1; }
+  .note  { font-size:11px; line-height:1.55; color:var(--hot); }
+  .caret::after { content:"▍"; color:var(--hot); animation:blink 1s steps(2) infinite; }
+  @keyframes finding-line {
+    0%,100% { border-left-color:transparent; text-shadow:none; }
+    12%,55% { border-left-color:var(--warn); text-shadow:0 0 12px rgba(195,64,31,.9); }
+  }
+  .he-summary { margin-top:6px; font-size:11px; line-height:1.6; color:var(--ink); opacity:.86; direction:rtl; text-align:right; }
+  .waiting-line { font-size:11px; color:var(--ink); letter-spacing:.08em; }
+
+  #legend { position:fixed; bottom:10px; right:14px; z-index:2; font-size:9px;
+    color:var(--dim); letter-spacing:.05em; text-align:right; line-height:1.7; }
+  #legend b{color:var(--ink);} #legend .s{color:var(--ok);}
+  #legend .m{color:var(--hot);} #legend .h{color:var(--warn);}
+  #conn { position:fixed; bottom:10px; left:14px; z-index:2; font-size:9px;
+    color:var(--dim); letter-spacing:.08em; transform:translateY(-16px); }
+  #live { position:fixed; bottom:10px; left:14px; z-index:2; font-size:9px;
+    color:var(--ink); letter-spacing:.08em; opacity:.86; }
+</style>
+
+<div id="stage">
+  <div id="station">
+    <div id="label">reading new trace<span class="blink">…</span></div>
+    <div id="frame"><img id="trace-img" alt="" /></div>
+    <div id="voice">
+      <p class="geo"></p>
+      <p class="guess"></p>
+      <p class="invented"></p>
+      <p class="note"></p>
+      <p class="he-summary" dir="rtl"></p>
+    </div>
+  </div>
+  <div id="worldbox">
+    <div class="wlabel">reconstruction</div>
+    <canvas id="scene"></canvas>
+  </div>
+</div>
+
+<div id="legend">
+  <b>solidity = certainty</b><br>
+  <span class="s">observed</span> → line &nbsp;
+  <span class="m">·</span> &nbsp;
+  <span class="h">invented</span> → dashed primitive
+</div>
+<div id="conn">connecting…</div>
+<div id="live">READING — · PASS 1 · --:--:--</div>
+
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+// ── scene ────────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x050607);
+scene.fog = new THREE.FogExp2(0x050607, 0.018);
+const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 500);
+
+scene.add(new THREE.AmbientLight(0xDADFE6, 0.35));
+const key = new THREE.DirectionalLight(0xDADFE6, 0.22);
+key.position.set(-5, 9, 7); scene.add(key);
+
+const grid = new THREE.GridHelper(80, 40, 0x16181B, 0x16181B);
+grid.position.y = -0.01; scene.add(grid);
+
+const world = new THREE.Group(); scene.add(world);
+const livePointFragments = [];
+const MAX_LIVE_POINTS = 6000;
+const worldBounds = new THREE.Box3();
+const worldSize = new THREE.Vector3();
+const worldCenter = new THREE.Vector3();
+
+const worldbox = document.getElementById('worldbox');
+function resize() {
+  const w = worldbox.clientWidth, h = worldbox.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize); resize();
+
+// ── distance → direct forensic primitives ────────────────────────────────────
+const DISTANCE_STYLE = {
+  low:    { lineOpacity:.92, fillOpacity:.040, color:0xDADFE6, dashed:false },
+  medium: { lineOpacity:.52, fillOpacity:.012, color:0xDADFE6, dashed:false },
+  high:   { lineOpacity:.38, fillOpacity:0, color:0xC3401F, dashed:true },
+};
+function distanceStyle(distance) {
+  return DISTANCE_STYLE[distance] || DISTANCE_STYLE.high;
+}
+const FAST_CONVERGE = location.search.includes('fast-converge') || location.hash.includes('fast-converge');
+
+const SCALE = 7;                 // unit cube (0-1) → world units, per trace
+const num = (s, d=.5) => {
+  const p = String(s ?? '').split(',').map(n => parseFloat(n));
+  return [0,1,2].map(i => Number.isFinite(p[i]) ? p[i] : d);
+};
+function geometryFor(type, w, h, d) {
+  switch (type) {
+    case 'plane': return new THREE.BoxGeometry(w, Math.max(h,0.05), Math.max(d,0.05));
+    case 'line':  return new THREE.BoxGeometry(Math.max(w,0.06), Math.max(h,0.06), Math.max(d,0.06));
+    case 'sphere': return new THREE.SphereGeometry(Math.max(w,h,d)*.5, 16, 10);
+    case 'cylinder': return new THREE.CylinderGeometry(Math.max(w,d)*.5, Math.max(w,d)*.5, h, 12);
+    case 'cone': return new THREE.ConeGeometry(Math.max(w,d)*.5, h, 12);
+    default:      return new THREE.BoxGeometry(w, h, d);   // box | void
+  }
+}
+
+const DENOISE_VERTEX = `
+attribute vec3 aTargetPosition;
+attribute float aRandomDelay;
+attribute vec3 aNoiseSeed;
+uniform float uTime;
+uniform float uConvergenceRate;
+uniform float uJitterAmount;
+uniform float uPulse;
+uniform float uPointSize;
+varying float vAlpha;
+
+float easeOutCubic(float x) {
+  x = clamp(x, 0.0, 1.0);
+  return 1.0 - pow(1.0 - x, 3.0);
+}
+float layeredNoise(float t, vec3 seed) {
+  float a = sin(t * 1.173 + seed.x * 12.9898);
+  float b = sin(t * 2.617 + seed.y * 78.233 + a * 1.7);
+  float c = sin(t * 4.381 + seed.z * 37.719 + b * 0.9);
+  float d = fract(sin(dot(seed.xy + vec2(a,b), vec2(127.1,311.7))) * 43758.5453);
+  return (a * 0.38 + b * 0.34 + c * 0.22 + (d - 0.5) * 0.12);
+}
+
+void main() {
+  float denom = max(0.001, 1.0 - aRandomDelay);
+  float local = clamp((uConvergenceRate - aRandomDelay) / denom, 0.0, 1.0);
+  float easedProgress = easeOutCubic(local);
+  easedProgress = max(easedProgress, uPulse * 0.9);
+
+  float restless = uJitterAmount * (0.22 + easedProgress * 0.78);
+  float tighten = mix(1.0, 0.24, uPulse);
+  vec3 jitter = vec3(
+    layeredNoise(uTime * 0.91, aNoiseSeed),
+    layeredNoise(uTime * 1.37, aNoiseSeed.yzx + 3.17),
+    layeredNoise(uTime * 2.11, aNoiseSeed.zxy + 7.43)
+  ) * restless * tighten;
+
+  vec3 p = mix(position, aTargetPosition, easedProgress) + jitter;
+  vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
+  gl_PointSize = uPointSize;
+  gl_Position = projectionMatrix * mvPosition;
+  vAlpha = 1.0 - smoothstep(0.98, 1.0, local);
+}
+`;
+
+const DENOISE_FRAGMENT = `
+uniform vec3 uColor;
+uniform float uOpacity;
+varying float vAlpha;
+void main() {
+  vec2 uv = gl_PointCoord - vec2(0.5);
+  float d = length(uv);
+  if (d > 0.5) discard;
+  gl_FragColor = vec4(uColor, uOpacity * vAlpha);
+}
+`;
+
+// organic accretion — the agent wanders; no imposed spiral.
+const BOUND = 6.5;
+let walker = new THREE.Vector3(0, 0, 0);
+let placed = 0;
+
+function countForSize(w, h, d) {
+  const volume = Math.max(w*h*d, .02);
+  return Math.max(60, Math.min(250, Math.round(80 + volume * 10)));
+}
+function edgeSampler(edgeGeo) {
+  const arr = edgeGeo.attributes.position.array;
+  const segs = [];
+  let total = 0;
+  for (let i=0; i<arr.length; i+=6) {
+    const ax=arr[i], ay=arr[i+1], az=arr[i+2];
+    const bx=arr[i+3], by=arr[i+4], bz=arr[i+5];
+    const len = Math.hypot(bx-ax, by-ay, bz-az);
+    if (len <= 0) continue;
+    total += len;
+    segs.push({ ax, ay, az, bx, by, bz, total });
+  }
+  return function sample(out, i) {
+    let r = Math.random() * total;
+    let seg = segs[segs.length - 1];
+    for (const s of segs) { if (r <= s.total) { seg = s; break; } }
+    const t = Math.random();
+    out[i]   = seg.ax + (seg.bx - seg.ax) * t;
+    out[i+1] = seg.ay + (seg.by - seg.ay) * t;
+    out[i+2] = seg.az + (seg.bz - seg.az) * t;
+  };
+}
+function denoiseMaterial(style) {
+  // cloned per fragment: its uniforms are the fragment's private convergence state
+  return new THREE.ShaderMaterial({
+    vertexShader:DENOISE_VERTEX,
+    fragmentShader:DENOISE_FRAGMENT,
+    uniforms:{
+      uTime:{ value:0 },
+      uConvergenceRate:{ value:0 },
+      uJitterAmount:{ value:0 },
+      uColor:{ value:new THREE.Color(style.color) },
+      uOpacity:{ value:style.pointOpacity },
+      uPulse:{ value:0 },
+      uPointSize:{ value:2.0 },
+    },
+    transparent:true,
+    depthWrite:false,
+    blending:THREE.NormalBlending,
+  });
+}
+function materializePrimitive(p) {
+  const [px,py,pz] = num(p.approx_position);
+  const [sw,sh,sd] = num(p.approx_scale, 0.2);
+  const w=Math.max(sw,0.02)*SCALE, h=Math.max(sh,0.02)*SCALE, d=Math.max(sd,0.02)*SCALE;
+  const geo = geometryFor(p.type, w, h, d);
+  const edgeGeo = new THREE.EdgesGeometry(geo);
+  const style = distanceStyle(p.distance_from_input);
+  const root = new THREE.Group();
+  root.position.set((px-0.5)*SCALE, py*SCALE, (pz-0.5)*SCALE);
+  root.userData.distance = p.distance_from_input || 'high';
+  root.userData.startTime = performance.now();
+  root.userData.duration = 1100;
+
+  const fillMat = new THREE.MeshBasicMaterial({
+    color:style.color,
+    transparent:true,
+    opacity:0,
+    depthWrite:false,
+    side:THREE.DoubleSide,
+  });
+  const fill = new THREE.Mesh(geo, fillMat);
+  fill.userData.targetOpacity = style.fillOpacity;
+  root.userData.fill = fill;
+  root.add(fill);
+
+  const lineMat = style.dashed
+    ? new THREE.LineDashedMaterial({
+        color:style.color, transparent:true, opacity:0, depthWrite:false,
+        dashSize:.16, gapSize:.10,
+      })
+    : new THREE.LineBasicMaterial({
+        color:style.color, transparent:true, opacity:0, depthWrite:false,
+      });
+  const line = new THREE.LineSegments(edgeGeo, lineMat);
+  if (style.dashed) line.computeLineDistances();
+  line.userData.targetOpacity = style.lineOpacity;
+  root.userData.edgeLine = line;
+  root.add(line);
+  return root;
+}
+
+function disposeObject(obj) {
+  obj.geometry?.dispose?.();
+  obj.material?.dispose?.();
+}
+function removeCloud(fragment) {
+  const cloud = fragment.userData.cloud;
+  if (!cloud) return;
+  fragment.remove(cloud);
+  disposeObject(cloud);
+  fragment.userData.cloud = null;
+  fragment.userData.pointCount = 0;
+}
+function enforcePointBudget() {
+  // Kept as a no-op so the render loop remains compatible with older sessions.
+}
+
+function spawnGroup() {
+  // wander a step, but mean-revert toward the centre so the mass stays framed
+  const step = new THREE.Vector3(
+    (Math.random() - 0.5),
+    (Math.random() - 0.5) * 0.3,
+    (Math.random() - 0.5)
+  ).normalize().multiplyScalar(2.0 + Math.random() * 1.6);
+  walker.add(step).multiplyScalar(0.6);
+  if (walker.length() > BOUND) walker.setLength(BOUND);
+  walker.y = Math.max(0, walker.y);
+
+  const group = new THREE.Group();
+  group.position.copy(walker);
+  world.add(group);
+  placed++;
+  return group;
+}
+
+function addPrimitiveToGroup(group, p, pulseFinding = false) {
+  const fragment = materializePrimitive(p);
+  fragment.scale.setScalar(0.001);
+  fragment.userData.grow = 1;
+  if (pulseFinding && p.distance_from_input === 'high') {
+    fragment.userData.findingPulseUntil = performance.now() + 3000;
+  }
+  group.add(fragment);
+  return fragment;
+}
+
+// build a trace piece by piece, spread across the reading — each primitive
+// materialises (grows in) one after another as he describes the geometry.
+async function buildTrace(d, span = 18000, pulseFinding = false) {
+  const prims = d?.spatial_reconstruction?.geometry?.primitives ?? [];
+  if (!prims.length) return;
+  const group = spawnGroup();
+  const gap = Math.min(2800, span / prims.length);
+  for (const p of prims) {
+    addPrimitiveToGroup(group, p, pulseFinding);
+    await sleep(gap);
+  }
+}
+
+// add an entire trace at once (only for backlog traces we never display)
+function addTraceInstant(d) {
+  const prims = d?.spatial_reconstruction?.geometry?.primitives ?? [];
+  if (!prims.length) return;
+  const group = spawnGroup();
+  for (const p of prims) addPrimitiveToGroup(group, p, false);
+}
+
+// ── render loop ──────────────────────────────────────────────────────────────
+let t = 0;
+function easeOutCubic(x) {
+  x = Math.max(0, Math.min(1, x));
+  return 1 - Math.pow(1 - x, 3);
+}
+function animateDenoisingFragment(fragment, now) {
+  const distance = fragment.userData.distance;
+  const style = distanceStyle(distance);
+  const elapsed = now - fragment.userData.startTime;
+  const duration = fragment.userData.duration || 1100;
+  const reveal = easeOutCubic(elapsed / duration);
+  const findingRemaining = fragment.userData.findingPulseUntil ? fragment.userData.findingPulseUntil - now : 0;
+  const finding = findingRemaining > 0 && distance === 'high';
+  const pulse = finding ? Math.sin((1 - findingRemaining / 3000) * Math.PI) : 0;
+  if (fragment.userData.fill) {
+    fragment.userData.fill.material.opacity = style.fillOpacity * reveal;
+  }
+  if (fragment.userData.edgeLine) {
+    fragment.userData.edgeLine.material.opacity = Math.min(
+      .95,
+      style.lineOpacity * reveal + pulse * .38,
+    );
+    fragment.userData.edgeLine.material.color.set(finding ? 0xC3401F : style.color);
+  }
+  if (findingRemaining <= 0 && fragment.userData.findingPulseUntil) {
+    delete fragment.userData.findingPulseUntil;
+  }
+}
+function tick() {
+  requestAnimationFrame(tick);
+  t += 0.0014;
+  const now = performance.now();
+
+  // frame the whole accumulated field with margin; slow drift, no looming masses
+  worldBounds.setFromObject(world);
+  if (!worldBounds.isEmpty()) {
+    worldBounds.getSize(worldSize);
+    worldBounds.getCenter(worldCenter);
+  } else {
+    worldCenter.set(0,1.4,0);
+    worldSize.set(8,6,8);
+  }
+  const maxDim = Math.max(worldSize.x, worldSize.y, worldSize.z, 8);
+  const fov = camera.fov * Math.PI / 180;
+  const fitDist = (maxDim * 0.5) / Math.tan(fov * 0.5);
+  const r = Math.max(16, fitDist * 1.75);
+  const drift = t * 0.38;
+  camera.position.set(
+    worldCenter.x + Math.sin(drift) * r,
+    worldCenter.y + Math.max(7, maxDim * .42) + Math.sin(drift * 0.7) * 1.0,
+    worldCenter.z + Math.cos(drift) * r
+  );
+  camera.lookAt(worldCenter.x, worldCenter.y + Math.min(1.5, maxDim*.08), worldCenter.z);
+
+  world.children.forEach(g => g.children.forEach(fragment => {
+    if (fragment.userData.grow) {
+      const s = fragment.scale.x + (1 - fragment.scale.x) * 0.12;
+      fragment.scale.setScalar(s);
+      if (s > 0.995) fragment.userData.grow = 0;
+    }
+    animateDenoisingFragment(fragment, now);
+  }));
+  enforcePointBudget();
+  renderer.render(scene, camera);
+}
+tick();
+
+// ── the reading station (one ephemeral card at a time) ───────────────────────
+const station = document.getElementById('station');
+const labelEl  = document.getElementById('label');
+const frameEl  = document.getElementById('frame');
+const imgEl    = document.getElementById('trace-img');
+const geoEl    = document.querySelector('#voice .geo');
+const guessEl  = document.querySelector('#voice .guess');
+const inventedEl = document.querySelector('#voice .invented');
+const noteEl   = document.querySelector('#voice .note');
+const heEl     = document.querySelector('#voice .he-summary');
+const connEl   = document.getElementById('conn');
+const liveEl   = document.getElementById('live');
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let currentTraceId = '—';
+let pass = Number(sessionStorage.getItem('traceDecoderPass') || '1');
+let lastSeq = 0;
+const seenTraceIds = new Set();
+let filed = 0;
+
+function setCurrentTrace(id) {
+  currentTraceId = id || '—';
+  updateLiveStamp();
+}
+
+function updateLiveStamp() {
+  const now = new Date().toLocaleTimeString('en-GB', { hour12:false });
+  liveEl.textContent = `READING ${currentTraceId} · PASS ${pass} · ${now}`;
+}
+setInterval(updateLiveStamp, 1000);
+updateLiveStamp();
+
+async function type(el, text, speed, isCurrent = null) {
+  if (isCurrent && !isCurrent()) return false;
+  el.textContent = '';
+  el.classList.add('caret');
+  const out = String(text).replace(/\.\s+/g, '.\n');   // newline after each sentence
+  for (let i = 0; i < out.length; i++) {
+    if (isCurrent && !isCurrent()) return false;
+    const ch = out[i];
+    el.textContent += ch;
+    await sleep(speed + Math.random() * speed * 0.5);  // uneven, human-ish keystrokes
+    if (ch === '\n') {
+      await sleep(900 + Math.random() * 1400);         // pause to think after each sentence
+    } else if (ch === ' ' && Math.random() < 0.07) {
+      await sleep(700 + Math.random() * 1900);         // occasionally stop mid-thought, then resume
+    }
+  }
+  el.classList.remove('caret');
+  return true;
+}
+
+function allConfidenceValues(d) {
+  const vals = [];
+  if (Number.isFinite(Number(d.overall_confidence))) vals.push(Number(d.overall_confidence));
+  Object.values(d.per_claim_confidence || {}).forEach(v => {
+    if (Number.isFinite(Number(v))) vals.push(Number(v));
+  });
+  (d.salient_marks || []).forEach(mark => {
+    if (Number.isFinite(Number(mark.confidence))) vals.push(Number(mark.confidence));
+  });
+  return vals;
+}
+function hasFindingMoment(d) {
+  const confident = allConfidenceValues(d).some(v => v >= .7);
+  const highGap = (d.inference_gaps || []).some(g => g?.distance_from_input === 'high');
+  return confident && highGap;
+}
+function renderInvented(d, pulse) {
+  const gaps = d.inference_gaps || [];
+  inventedEl.innerHTML = '';
+  if (!gaps.length) return;
+  for (const gap of gaps) {
+    const line = document.createElement('span');
+    line.className = 'invented-line';
+    if (pulse && gap.distance_from_input === 'high') line.classList.add('finding');
+    line.textContent = `${gap.what_was_filled || 'unnamed inference'} — distance: ${gap.distance_from_input || 'unknown'}`;
+    inventedEl.appendChild(line);
+  }
+}
+
+const HE_DICT = {
+  threshold:'סף', container:'מכל', tool:'כלי', ritual:'טקס', dwelling:'מגורים',
+  maker:'יוצר', enclosure:'תחימה', body:'גוף', source:'מקור', code:'קוד',
+  context:'הקשר', opening:'פתח', passage:'מעבר', wall:'קיר', ground:'קרקע',
+  surface:'משטח', mark:'סימן', object:'אובייקט', scene:'סצנה', room:'חדר',
+  vessel:'כלי קיבול', handle:'ידית', maintenance:'תחזוקה',
+};
+function firstPhrase(text) {
+  return String(text || '').split(/[.;\n]/).map(s => s.trim()).filter(Boolean).sort((a,b)=>a.length-b.length)[0] || '—';
+}
+function translateRecurringTerms(text) {
+  let out = String(text || '').trim();
+  for (const [en, he] of Object.entries(HE_DICT)) {
+    out = out.replace(new RegExp(`\\b${en}\\b`, 'gi'), he);
+  }
+  return out || '—';
+}
+function renderHebrewSummary(d) {
+  const phrase = firstPhrase(d.raw_reading);
+  const firstGap = (d.inference_gaps || [])[0]?.what_was_filled || '';
+  heEl.textContent = `קראתי: ${phrase} · המצאתי: ${translateRecurringTerms(firstGap)}`;
+}
+
+function findStringValue(buffer, key, partial = false) {
+  const k = `"${key}"`;
+  const i = buffer.indexOf(k);
+  if (i < 0) return null;
+  const colon = buffer.indexOf(':', i + k.length);
+  if (colon < 0) return null;
+  let q = colon + 1;
+  while (q < buffer.length && /\s/.test(buffer[q])) q++;
+  if (buffer[q] !== '"') return null;
+  let out = '', esc = false;
+  for (let j = q + 1; j < buffer.length; j++) {
+    const ch = buffer[j];
+    if (esc) { out += ch; esc = false; continue; }
+    if (ch === '\\') { esc = true; continue; }
+    if (ch === '"') return { value: out, complete: true };
+    out += ch;
+  }
+  return partial ? { value: out, complete: false } : null;
+}
+
+function findNumberValue(buffer, key) {
+  const k = `"${key}"`;
+  const i = buffer.indexOf(k);
+  if (i < 0) return null;
+  const colon = buffer.indexOf(':', i + k.length);
+  if (colon < 0) return null;
+  const m = buffer.slice(colon + 1).match(/^\s*(-?\d+(?:\.\d+)?)/);
+  return m ? Number(m[1]) : null;
+}
+
+function findArrayStart(buffer, key) {
+  const k = `"${key}"`;
+  const i = buffer.indexOf(k);
+  if (i < 0) return -1;
+  const colon = buffer.indexOf(':', i + k.length);
+  if (colon < 0) return -1;
+  return buffer.indexOf('[', colon);
+}
+
+function completedObjectsInArray(buffer, key) {
+  const start = findArrayStart(buffer, key);
+  if (start < 0) return [];
+  const objects = [];
+  let depth = 0, objStart = -1, inString = false, esc = false;
+  for (let i = start + 1; i < buffer.length; i++) {
+    const ch = buffer[i];
+    if (inString) {
+      if (esc) esc = false;
+      else if (ch === '\\') esc = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') { inString = true; continue; }
+    if (ch === '{') {
+      if (depth === 0) objStart = i;
+      depth++;
+    } else if (ch === '}') {
+      depth--;
+      if (depth === 0 && objStart >= 0) {
+        const raw = buffer.slice(objStart, i + 1);
+        try { objects.push(JSON.parse(raw)); } catch {}
+        objStart = -1;
+      }
+    } else if (ch === ']' && depth === 0) break;
+  }
+  return objects;
+}
+
+function setWords(el, prefix, text) {
+  const words = String(text || '').trim().split(/\s+/).filter(Boolean);
+  el.textContent = words.length ? `${prefix}${words.join(' ')}` : '';
+}
+
+// slow random zoom/pan over the trace — as if he is scrutinising it. The pan
+// offset is bounded by (scale-1)*50% so the image edges never leave the frame.
+let examining = false;
+async function examine() {
+  examining = true;
+  while (examining) {
+    const roll = Math.random();
+    // Varied attention: broad scan, close inspection, or an occasional
+    // extreme magnification of a tiny detail.
+    const s = roll < .50
+      ? 1.05 + Math.random() * .55                 // 1.05–1.60, broad scan
+      : roll < .84
+        ? 1.60 + Math.random() * 1.15              // 1.60–2.75, close look
+        : 3.00 + Math.random() * 2.00;             // 3.00–5.00, extreme zoom
+    const move = 1600 + Math.random() * 2400;      // each move has its own pace
+    imgEl.style.transition = `transform ${move}ms cubic-bezier(.37,0,.2,1)`;
+    const m = (s - 1) * 50;                        // max % offset that stays in frame
+    const tx = (Math.random() * 2 - 1) * m * .92;
+    const ty = (Math.random() * 2 - 1) * m * .92;
+    imgEl.style.transform = `translate(${tx}%, ${ty}%) scale(${s})`;
+    // Extreme looks linger longer, as if a detail has caught its attention.
+    const dwell = s >= 3 ? 5000 + Math.random() * 4500
+                         : 2500 + Math.random() * 4500;
+    await sleep(move + dwell);
+  }
+}
+function stopExamine() {
+  examining = false;
+  imgEl.style.transition = 'transform .7s ease';
+  imgEl.style.transform = 'translate(0,0) scale(1)';
+}
+
+const TARGET = 30000;   // each trace lingers ~half a minute on screen
+const streams = new Map();
+let activeStream = null;
+let waitTimer = null;
+
+function streamKey(msg) {
+  // trace IDs repeat on later passes; seq identifies one concrete reading.
+  return String(msg.seq ?? msg.trace_id ?? 'unknown');
+}
+
+function resetReadingPanel() {
+  geoEl.textContent = guessEl.textContent = noteEl.textContent = heEl.textContent = '';
+  inventedEl.innerHTML = '';
+}
+
+function beginWaitingClock(state) {
+  clearInterval(waitTimer);
+  waitTimer = setInterval(() => {
+    if (activeStream !== state) return;
+    const ms = Math.round(performance.now() - state.sentAt);
+    geoEl.innerHTML = `<span class="waiting-line caret">waiting ${ms}ms</span>`;
+  }, 80);
+}
+
+function startStreamingTrace(msg) {
+  const traceId = msg.trace_id || `SPC·${String(msg.seq || 0).padStart(3,'0')}`;
+  setCurrentTrace(traceId);
+  const state = {
+    key: streamKey(msg), traceId, seq: msg.seq, pass: msg.pass, image: msg.image,
+    machineImage: msg.machine_image || '',
+    buffer: '', sentAt: performance.now(), firstDeltaAt: 0,
+    rawComplete:false, interpComplete:false, gapCount:0, primitiveCount:0,
+    group:null, fields:{ inference_gaps:[], spatial_reconstruction:{ geometry:{ primitives:[] } } },
+    fallback:false,
+  };
+  streams.set(state.key, state);
+  activeStream = state;
+  resetReadingPanel();
+  const perceivedImage = msg.machine_image || msg.image;
+  imgEl.src = perceivedImage ? encodeURI('/' + perceivedImage) : '';
+  station.classList.add('live');
+  frameEl.classList.add('encoding');
+  frameEl.classList.remove('waiting');
+  labelEl.textContent = 'ENCODING → TRANSMITTING';
+  examine();
+  setTimeout(() => {
+    if (activeStream !== state || state.firstDeltaAt) return;
+    frameEl.classList.remove('encoding');
+    frameEl.classList.add('waiting');
+    labelEl.textContent = 'WAITING';
+    beginWaitingClock(state);
+  }, 1100);
+}
+
+function streamGapLine(gap, finding) {
+  const line = document.createElement('span');
+  line.className = 'invented-line';
+  if (finding && gap.distance_from_input === 'high') line.classList.add('finding');
+  line.textContent = `${gap.what_was_filled || 'unnamed inference'} — distance: ${gap.distance_from_input || 'unknown'}`;
+  inventedEl.appendChild(line);
+}
+
+function processStreamingDelta(msg) {
+  const state = streams.get(streamKey(msg));
+  if (!state) return;
+  activeStream = state;
+  state.buffer += msg.delta || '';
+  if (!state.firstDeltaAt) {
+    state.firstDeltaAt = performance.now();
+    clearInterval(waitTimer);
+    frameEl.classList.remove('encoding', 'waiting');
+    labelEl.textContent = `STREAMING ${state.traceId}`;
+    geoEl.textContent = '';
+  }
+
+  const raw = findStringValue(state.buffer, 'raw_reading', true);
+  if (raw && !state.rawComplete) {
+    setWords(geoEl, 'I see ', raw.value ? raw.value[0]?.toLowerCase() + raw.value.slice(1) : '');
+    state.fields.raw_reading = raw.value;
+    state.rawComplete = raw.complete;
+  }
+  const interp = findStringValue(state.buffer, 'first_interpretation', true);
+  if (interp && !state.interpComplete) {
+    setWords(guessEl, '→ ', interp.value);
+    state.fields.first_interpretation = interp.value;
+    state.interpComplete = interp.complete;
+  }
+
+  const gaps = completedObjectsInArray(state.buffer, 'inference_gaps');
+  const provisional = {
+    ...state.fields,
+    inference_gaps:gaps,
+    overall_confidence:findNumberValue(state.buffer, 'overall_confidence') ?? 0
+  };
+  const finding = hasFindingMoment(provisional);
+  while (state.gapCount < gaps.length) {
+    streamGapLine(gaps[state.gapCount], finding);
+    state.fields.inference_gaps.push(gaps[state.gapCount]);
+    state.gapCount++;
+  }
+
+  const prims = completedObjectsInArray(state.buffer, 'primitives');
+  if (prims.length && !state.group) state.group = spawnGroup();
+  while (state.primitiveCount < prims.length) {
+    const p = prims[state.primitiveCount];
+    addPrimitiveToGroup(state.group, p, finding);
+    state.fields.spatial_reconstruction.geometry.primitives.push(p);
+    state.primitiveCount++;
+  }
+}
+
+async function finishStreamingTrace(msg) {
+  const state = streams.get(streamKey(msg));
+  if (!state) {
+    // A late-joining browser receives completed history without the matching
+    // trace_start. Rebuild that fragment silently; never let an archived
+    // typewriter compete with the currently live reading panel.
+    addTraceInstant(msg.data || {});
+    filed++;
+    connEl.textContent = `${seen} traces found · ${filed} filed`;
+    return;
+  }
+  clearInterval(waitTimer);
+  frameEl.classList.remove('encoding', 'waiting');
+  const d = msg.data || {};
+  const isCurrent = () => activeStream === state;
+  if (!state.rawComplete || !state.interpComplete) {
+    console.warn('[stream] partial parse fallback — rendering full response staged', msg.trace_id);
+    state.fallback = true;
+    await type(geoEl, 'I see ' + ((d.raw_reading || '') ? d.raw_reading[0].toLowerCase() + d.raw_reading.slice(1) : ''), 40, isCurrent);
+    if (d.first_interpretation) await type(guessEl, '→ ' + d.first_interpretation, 40, isCurrent);
+  }
+  const fullGaps = d.inference_gaps || [];
+  const finding = hasFindingMoment(d);
+  while (state.gapCount < fullGaps.length) {
+    streamGapLine(fullGaps[state.gapCount], finding);
+    state.gapCount++;
+  }
+  const fullPrims = d?.spatial_reconstruction?.geometry?.primitives || [];
+  if (fullPrims.length && !state.group) state.group = spawnGroup();
+  while (state.primitiveCount < fullPrims.length) {
+    addPrimitiveToGroup(state.group, fullPrims[state.primitiveCount], finding);
+    state.primitiveCount++;
+  }
+  if (isCurrent()) renderHebrewSummary(d);
+  const cleanedNote = String(d.archive_note || '')
+    .replace(/^\s*(Filing|Recording|I record|I am recording)\s+SPC·\d{3}[,.]?\s*/i, '')
+    .replace(/^\s*SPC·\d{3}\s*/i, '')
+    .trim();
+  if (isCurrent()) {
+    await type(
+      noteEl,
+      `Filing ${state.traceId}.${cleanedNote ? ' ' + cleanedNote : ''}`,
+      40,
+      isCurrent
+    );
+  }
+  if (isCurrent()) {
+    labelEl.textContent = `trace ${state.traceId} — filed to archive`;
+    await sleep(1200);
+  }
+  if (isCurrent()) {
+    stopExamine();
+    station.classList.remove('live');
+  }
+  if (!state.filed) {
+    state.filed = true;
+    filed++;
+    connEl.textContent = `${seen} traces found · ${filed} filed`;
+  }
+  streams.delete(state.key);
+}
+
+async function showTrace(msg) {
+  const start = performance.now();
+  const d = msg.data || {};
+  const traceId = msg.trace_id || d._trace_id || `SPC·${String(msg.seq || 0).padStart(3,'0')}`;
+  setCurrentTrace(traceId);
+  const perceivedImage = msg.machine_image || msg.image;
+  imgEl.src = perceivedImage ? encodeURI('/' + perceivedImage) : '';
+  geoEl.textContent = guessEl.textContent = noteEl.textContent = heEl.textContent = '';
+  inventedEl.innerHTML = '';
+  labelEl.innerHTML = `reading new trace <span>${traceId}</span><span class="blink">…</span>`;
+
+  station.classList.add('live');
+  examine();                                    // begin scrutinising the trace
+  await sleep(560);
+  const finding = hasFindingMoment(d);
+  buildTrace(d, 18000, finding);                // it builds piece by piece as he reads
+
+  const rr = d.raw_reading || '';
+  await type(geoEl, 'I see ' + (rr ? rr[0].toLowerCase() + rr.slice(1) : ''), 70);
+  await sleep(900);
+  if (d.first_interpretation) { await type(guessEl, '→ ' + d.first_interpretation, 78); await sleep(900); }
+  renderInvented(d, finding);
+  if (inventedEl.textContent) await sleep(finding ? 3100 : 900);
+  renderHebrewSummary(d);
+  if (heEl.textContent) await sleep(900);
+  const cleanedNote = String(d.archive_note || '')
+    .replace(/^\s*(Filing|Recording|I record|I am recording)\s+SPC·\d{3}[,.]?\s*/i, '')
+    .replace(/^\s*SPC·\d{3}\s*/i, '')
+    .trim();
+  const archiveLine = `Filing ${traceId}.${cleanedNote ? ' ' + cleanedNote : ''}`;
+  await type(noteEl, archiveLine, 90);
+
+  labelEl.textContent = `trace ${traceId} — filed to archive`;
+
+  // pad the dwell so the whole trace occupies ~TARGET, regardless of reading length
+  const elapsed = performance.now() - start;
+  await sleep(Math.max(2000, TARGET - elapsed - 720));
+  stopExamine();                                // settle the image before it leaves
+  station.classList.remove('live');
+  await sleep(720);
+  filed++;
+  connEl.textContent = `${seen} traces found · ${filed} filed`;
+}
+
+// process traces strictly one at a time; if they pile up, keep the panel current
+// but still let the world grow from the skipped ones.
+const queue = [];
+let busy = false;
+async function pump() {
+  if (busy) return;
+  busy = true;
+  while (queue.length) {
+    while (queue.length > 3) { addTraceInstant(queue.shift().data); filed++; }   // drain backlog into the world
+    await showTrace(queue.shift());
+  }
+  busy = false;
+}
+
+// ── websocket ────────────────────────────────────────────────────────────────
+let seen = 0;
+function connect() {
+  const wsPort = new URLSearchParams(location.search).get('ws') || '8765';
+  const ws = new WebSocket(`ws://${location.hostname || '127.0.0.1'}:${wsPort}`);
+  ws.onopen  = () => connEl.textContent = 'connected';
+  ws.onclose = () => { connEl.textContent = 'reconnecting…'; setTimeout(connect, 1500); };
+  ws.onerror = () => ws.close();
+  ws.onmessage = ev => {
+    let m; try { m = JSON.parse(ev.data); } catch { return; }
+    const traceId = m.trace_id || m.data?._trace_id || `SPC·${String(m.seq || 0).padStart(3,'0')}`;
+    if (m.type === 'trace_start') {
+      if (m.pass && Number(m.pass) !== pass) pass = Number(m.pass);
+      else if (seenTraceIds.has(traceId) && traceId === 'SPC·001') pass += 1;
+      seenTraceIds.add(traceId);
+      if (!m.pass && m.seq && m.seq < lastSeq) pass += 1;
+      sessionStorage.setItem('traceDecoderPass', String(pass));
+      lastSeq = m.seq || lastSeq;
+      seen++;
+      connEl.textContent = `${seen} traces found · ${filed} filed`;
+      startStreamingTrace(m);
+      return;
+    }
+    if (m.type === 'trace_delta') {
+      processStreamingDelta(m);
+      return;
+    }
+    if (m.type === 'trace_done') {
+      finishStreamingTrace(m);
+      return;
+    }
+    if (m.type !== 'trace') return;
+    if (m.pass && Number(m.pass) !== pass) pass = Number(m.pass);
+    seen++;
+    connEl.textContent = `${seen} traces found · ${filed} filed`;
+    queue.push(m);
+    pump();
+  };
+}
+connect();
+</script>
