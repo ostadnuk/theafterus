@@ -31,11 +31,11 @@
   @media (max-width:700px){ #legend{ display:none; } #counts{ display:none; } }
 
   /* ---- grid ---- */
-  #grid{ position:fixed; inset:34px 0 30px 0; display:grid; gap:1px;
+  #grid{ position:fixed; top:34px; right:0; bottom:30px; left:0; display:grid; gap:1px;
     background:var(--bg); padding:1px; }
   .cell{ position:relative; overflow:hidden; background:var(--panel);
     border:1px solid var(--line); cursor:pointer; }
-  .cell img{ position:absolute; inset:0; width:100%; height:100%;
+  .cell img{ position:absolute; top:0; left:0; width:100%; height:100%;
     object-fit:cover; display:block;
     filter:grayscale(.12) contrast(1.02) brightness(1.08);
     opacity:0; transition:opacity 1.6s ease; }
@@ -48,14 +48,14 @@
   .cell:hover .tag{ opacity:1; }
   .cell .tag .u{ color:var(--warn); }
   /* scan shimmer during swap — restrained, no bloom */
-  .cell .scan{ position:absolute; inset:0; z-index:2; pointer-events:none; opacity:0;
+  .cell .scan{ position:absolute; top:0; right:0; bottom:0; left:0; z-index:2; pointer-events:none; opacity:0;
     background:linear-gradient(180deg,transparent 0%,rgba(218,223,230,.14) 50%,transparent 100%);
     background-size:100% 300%; }
   .cell.swapping .scan{ opacity:1; animation:sweep 1.6s linear; }
   @keyframes sweep{ from{ background-position:0 -100%; } to{ background-position:0 200%; } }
 
   /* ---- lightbox ---- */
-  #box{ position:fixed; inset:0; z-index:20; display:none; background:rgba(5,6,7,.94); }
+  #box{ position:fixed; top:0; right:0; bottom:0; left:0; z-index:20; display:none; background:rgba(5,6,7,.94); }
   #box.open{ display:flex; align-items:center; justify-content:center; flex-direction:column; gap:14px; }
   #box img{ max-width:82vw; max-height:74vh; border:1px solid var(--line);
     filter:grayscale(.08) contrast(1.02); }
