@@ -12,9 +12,12 @@
   }
   html,body{ margin:0; height:100%; background:var(--bg); overflow:hidden;
     font-family:var(--mono); }
-  iframe{ position:fixed; inset:0; width:100%; height:100%; border:0;
+  /* iOS Safari inflates iframes to their content size; a clipping wrapper
+     with an explicitly pixel-sized iframe is the standard workaround */
+  .frame-wrap{ position:fixed; inset:0; overflow:hidden;
     opacity:0; transition:opacity 3.2s ease; pointer-events:none; }
-  iframe.front{ opacity:1; pointer-events:auto; }
+  .frame-wrap.front{ opacity:1; pointer-events:auto; }
+  .frame-wrap iframe{ border:0; width:100%; height:100%; display:block; }
   /* during the shift a brief horizontal scan passes — restrained, no bloom */
   #veil{ position:fixed; inset:0; z-index:8; pointer-events:none; opacity:0;
     background:linear-gradient(180deg,transparent 0%,rgba(218,223,230,.08) 50%,transparent 100%);
@@ -41,14 +44,23 @@
 <div id="mode">REGISTER · <b id="modename">—</b></div>
 <div id="veil"></div>
 
-<iframe id="fa" src="decoder.html" title="machine vision register"></iframe>
-<iframe id="fb" src="decoder-june.html" title="primitives register"></iframe>
+<div class="frame-wrap" id="fa"><iframe src="decoder.html" scrolling="no" title="machine vision register"></iframe></div>
+<div class="frame-wrap" id="fb"><iframe src="decoder-june.html" scrolling="no" title="primitives register"></iframe></div>
 
 <script>
 const SHIFT_EVERY = 170_000;   // ms between register shifts — slow dramaturgy
 const NAMES = { fa:'MACHINE VISION · DINOv2', fb:'PRIMITIVES · 2026-06-19' };
 const a = document.getElementById('fa');
 const b = document.getElementById('fb');
+function sizeFrames(){
+  document.querySelectorAll('.frame-wrap iframe').forEach(f=>{
+    f.style.width = window.innerWidth + 'px';
+    f.style.height = window.innerHeight + 'px';
+  });
+}
+sizeFrames();
+addEventListener('resize', sizeFrames);
+addEventListener('orientationchange', ()=>setTimeout(sizeFrames, 300));
 const veil = document.getElementById('veil');
 const modeEl = document.getElementById('modename');
 let front = a;
