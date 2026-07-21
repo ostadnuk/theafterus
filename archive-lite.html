@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>trace archive</title>
+<style>
+  html,body{ margin:0; height:100%; background:#050607; color:#d2d6da;
+    font-family:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace; overflow:hidden; }
+  #topbar{ position:fixed; top:0; left:0; right:0; height:34px; z-index:5;
+    background:#050607; }
+  #title{ position:absolute; top:12px; left:16px; font-size:10px;
+    letter-spacing:.22em; text-transform:uppercase; color:#DADFE6; }
+  #title a{ color:#6a727b; text-decoration:none; }
+  #botbar{ position:fixed; bottom:0; left:0; right:0; height:30px; z-index:5;
+    background:#050607; }
+  #drift{ position:absolute; bottom:10px; left:16px; font-size:9px;
+    letter-spacing:.08em; text-transform:uppercase; color:#6a727b; }
+  #grid{ position:fixed; top:34px; left:0; right:0; bottom:30px;
+    font-size:0; overflow:hidden; }
+  #grid img{ display:inline-block; object-fit:cover; margin:0; padding:0;
+    border:1px solid #16181B; box-sizing:border-box; background:#0a0b0d; }
+  #box{ position:fixed; top:0; left:0; right:0; bottom:0; z-index:20;
+    display:none; background:rgba(5,6,7,.96); text-align:center; }
+  #box.open{ display:block; }
+  #boximg{ margin-top:4vh; max-width:84vw; max-height:78vh; border:1px solid #16181B; }
+  #boxmeta{ margin-top:12px; font-size:10px; letter-spacing:.18em;
+    text-transform:uppercase; color:#6a727b; }
+  #boxmeta b{ color:#DADFE6; font-weight:normal; }
+</style>
+</head>
+<body>
+
+<div id="topbar"><div id="title"><a href="machine.html">MACHINE</a>&nbsp;&nbsp;ARCHIVE <span id="total"></span></div></div>
+<div id="grid"></div>
+<div id="botbar"><div id="drift">DRIFT · —</div></div>
+<div id="box"><img id="boximg" alt=""><div id="boxmeta"></div></div>
+
+<script>
+var INT_DIR = 'archives/intentional/';
+var UNI_DIR = 'archives/not intentional/';
+var pools = { intended: [], unintended: [] };
+var imgs = [];
+var bias = 0.5;
+var t0 = Date.now();
+
+function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
+function thumbSrc(kind, file){
+  var dir = kind === 'intended' ? 'intentional' : 'not intentional';
+  return encodeURI('archives/thumbs/' + dir + '/' + file.replace(/\.gif$/i, '.png'));
+}
+function fullSrc(kind, file){
+  return encodeURI((kind === 'intended' ? INT_DIR : UNI_DIR) + file);
+}
+
+function buildGrid(){
+  var grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  imgs = [];
+  var w = grid.clientWidth, h = grid.clientHeight;
+  var cols = Math.max(2, Math.round(w / 210));
+  var rows = Math.max(2, Math.round(h / 210));
+  var cw = Math.floor(w / cols), ch = Math.floor(h / rows);
+  for (var i = 0; i < cols * rows; i++){
+    var img = document.createElement('img');
+    img.style.width = cw + 'px';
+    img.style.height = ch + 'px';
+    img.onclick = (function(el){ return function(){ openBox(el); }; })(img);
+    grid.appendChild(img);
+    imgs.push(img);
+    assign(img);
+  }
+}
+
+function assign(img){
+  var kind = Math.random() < bias ? 'intended' : 'unintended';
+  var file = pick(pools[kind]);
+  img.setAttribute('data-kind', kind);
+  img.setAttribute('data-file', file);
+  img.src = thumbSrc(kind, file);
+  img.onerror = function(){ img.onerror = null; img.src = fullSrc(kind, file); };
+}
+
+function tick(){
+  var t = (Date.now() - t0) / 90000 * 2 * Math.PI;
+  bias = 0.5 + 0.42 * Math.sin(t);
+  var pct = Math.round(bias * 100);
+  document.getElementById('drift').textContent =
+    'DRIFT · INTENDED ' + pct + '% · UNINTENDED ' + (100 - pct) + '%';
+  if (imgs.length) assign(pick(imgs));
+  setTimeout(tick, 2200);
+}
+
+function openBox(img){
+  var kind = img.getAttribute('data-kind'), file = img.getAttribute('data-file');
+  if (!file) return;
+  document.getElementById('boximg').src = fullSrc(kind, file);
+  document.getElementById('boxmeta').innerHTML =
+    (kind === 'intended' ? '<b>INTENDED DEPOSIT</b>' : '<b style="color:#C3401F">UNINTENDED RESIDUE</b>')
+    + ' · ' + file;
+  document.getElementById('box').classList.add('open');
+}
+document.getElementById('box').onclick = function(){
+  document.getElementById('box').classList.remove('open');
+};
+
+var rz;
+window.onresize = function(){ clearTimeout(rz); rz = setTimeout(buildGrid, 400); };
+
+fetch('archive_images.json').then(function(r){ return r.json(); }).then(function(j){
+  pools.intended = j['intentional'];
+  pools.unintended = j['not intentional'];
+  document.getElementById('total').textContent =
+    '· ' + (pools.intended.length + pools.unintended.length) + ' TRACES';
+  buildGrid();
+  tick();
+});
+</script>
+</body>
+</html>
