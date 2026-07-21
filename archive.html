@@ -35,9 +35,8 @@
     background:var(--bg); padding:1px; }
   .cell{ position:relative; overflow:hidden; background:var(--panel);
     border:1px solid var(--line); cursor:pointer; }
-  .cell img{ position:absolute; top:0; left:0; width:100%; height:100%;
-    object-fit:cover; display:block;
-    filter:grayscale(.12) contrast(1.02) brightness(1.08);
+  .cell img{ position:absolute; top:0; left:0; right:0; bottom:0;
+    width:100%; height:100%; object-fit:cover; display:block;
     opacity:0; transition:opacity 1.6s ease; }
   .cell img.instant{ transition-duration:.35s; }
   .cell img.on{ opacity:1; }
