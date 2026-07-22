@@ -9,50 +9,140 @@
 <title>the after us</title>
 <meta name="description" content="A machine from the far future reads the material traces humanity left behind.">
 <style>
-  :root{
-    --bg:#050607; --ink:#d2d6da; --dim:#6a727b; --line:#16181B;
-    --hot:#DADFE6; --warn:#C3401F;
-    --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
-  }
-  html,body{ margin:0; height:100%; background:var(--bg); color:var(--ink);
-    font-family:var(--mono); display:flex; align-items:center; justify-content:center; }
-  main{ text-align:center; padding:24px; }
-  h1{ font-size:26px; font-weight:normal; letter-spacing:.34em; color:var(--hot);
-    margin:0 0 10px; text-transform:uppercase; }
-  p.sub{ font-size:10px; letter-spacing:.22em; text-transform:uppercase;
-    color:var(--dim); margin:0 0 46px; }
-  .doors{ display:flex; gap:1px; justify-content:center; flex-wrap:wrap; }
-  .doors a{ display:block; width:230px; padding:26px 18px 22px; text-decoration:none;
-    border:1px solid var(--line); color:var(--ink); text-align:right;
-    transition:border-color .4s ease; }
-  .doors a:hover{ border-color:var(--dim); }
-  .doors .k{ display:block; font-size:9px; letter-spacing:.22em; color:var(--warn);
-    text-transform:uppercase; margin-bottom:14px; text-align:left; }
-  .doors .t{ display:block; font-size:13px; letter-spacing:.06em; color:var(--hot);
-    direction:rtl; margin-bottom:6px; }
-  .doors .d{ display:block; font-size:10px; line-height:1.7; color:var(--dim);
-    direction:rtl; }
-  footer{ position:fixed; bottom:12px; left:0; right:0; text-align:center;
-    font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:var(--dim); }
+  html,body{ margin:0; height:100%; background:#050607; color:#c9d4de; overflow:hidden;
+    font-family:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace; }
+
+  /* a faint drift of traces behind everything — the archive, barely there */
+  #drift{ position:fixed; top:0; left:0; right:0; bottom:0; opacity:.14; }
+  .dcol{ position:absolute; top:0; will-change:transform; }
+  .dimg{ display:block; transition:opacity .8s linear; }
+  .dimg img{ width:100%; display:block; filter:grayscale(.4); }
+
+  main{ position:fixed; top:0; left:0; right:0; bottom:0; z-index:5;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; }
+
+  /* the title held in the reading brackets — the sign of the work */
+  #mark{ position:relative; padding:34px 46px; }
+  #mark .c{ position:absolute; width:26px; height:26px; border:2px solid #eef3f7; }
+  #mark .c1{ top:0; left:0; border-right:none; border-bottom:none; }
+  #mark .c2{ top:0; right:0; border-left:none; border-bottom:none; }
+  #mark .c3{ bottom:0; left:0; border-right:none; border-top:none; }
+  #mark .c4{ bottom:0; right:0; border-left:none; border-top:none; }
+  h1{ margin:0; font-weight:normal; font-size:clamp(22px, 4.2vw, 44px);
+    letter-spacing:.42em; color:#eef3f7; text-indent:.42em; white-space:nowrap; }
+
+  nav{ margin-top:52px; display:flex; gap:58px; }
+  nav a{ color:#6a727b; text-decoration:none; font-size:13px;
+    letter-spacing:.3em; text-transform:uppercase;
+    transition:color .5s ease; padding:8px 4px; }
+  nav a:hover{ color:#eef3f7; }
 </style>
 </head>
 <body>
+
+<div id="drift"></div>
 <main>
-  <h1>The After Us</h1>
-  <p class="sub">material traces · read by what remained</p>
-  <div class="doors">
-    <a href="machine.html">
-      <span class="k">01 / MACHINE</span>
-      <span class="t">המכונה</span>
-      <span class="d">קוראת את העקבות. מתארת גאומטריה, בונה מרחב שאין לה דרך להבין.</span>
-    </a>
-    <a href="recall.html">
-      <span class="k">02 / ARCHIVE</span>
-      <span class="t">הארכיון</span>
-      <span class="d">מה שהושאר בכוונה ומה שנשאר בלי כוונה — נודדים זה אל זה.</span>
-    </a>
+  <div id="mark">
+    <span class="c c1"></span><span class="c c2"></span><span class="c c3"></span><span class="c c4"></span>
+    <h1>THE AFTER US</h1>
   </div>
+  <nav>
+    <a href="machine.html">MACHINE</a>
+    <a href="recall.html">ARCHIVE</a>
+  </nav>
 </main>
-<footer>theafterus.com</footer>
+
+<script>
+/* the same rain as the archive, distant and dim — the world it reads from */
+var allPool = [], bag = [], bagPos = 0;
+function reshuffle(){
+  bag = allPool.slice();
+  for (var i = bag.length - 1; i > 0; i--){
+    var j = Math.floor(Math.random() * (i + 1));
+    var t = bag[i]; bag[i] = bag[j]; bag[j] = t;
+  }
+  bagPos = 0;
+}
+function nextItem(){
+  if (!bag.length) return null;
+  if (bagPos >= bag.length) reshuffle();
+  return bag[bagPos++];
+}
+function thumbOf(item){
+  return encodeURI('archives/thumbs/' + item.d + '/' + item.f.replace(/\.gif$/i, '.png'));
+}
+var cols = [];
+function build(){
+  var drift = document.getElementById('drift');
+  drift.innerHTML = '';
+  cols = [];
+  var W = innerWidth, H = innerHeight;
+  var n = Math.max(5, Math.round(W / 150));
+  var cw = Math.ceil(W / n);
+  for (var i = 0; i < n; i++){
+    var el = document.createElement('div');
+    el.className = 'dcol';
+    el.style.left = (i * cw) + 'px';
+    el.style.width = cw + 'px';
+    drift.appendChild(el);
+    var col = { el: el, y: -Math.random() * H, v: 8 + Math.random() * 10, cells: [] };
+    var need = Math.ceil(H / (cw * .8)) + 4;
+    for (var k = 0; k < need; k++){
+      var c = document.createElement('div');
+      c.className = 'dimg';
+      c._ph = Math.random() * Math.PI * 2;
+      c.innerHTML = '<img>';
+      el.appendChild(c);
+      feed(c);
+      col.cells.push(c);
+    }
+    cols.push(col);
+  }
+}
+function feed(cell){
+  var item = nextItem();
+  if (item) cell.querySelector('img').src = thumbOf(item);
+}
+var lastT = performance.now();
+function loop(now){
+  requestAnimationFrame(loop);
+  var dt = Math.min(.05, (now - lastT) / 1000);
+  lastT = now;
+  cols.forEach(function(col){
+    col.y += col.v * dt;
+    var firstH = col.cells[0] ? (col.cells[0].offsetHeight || 160) : 160;
+    var guard = 0;
+    while (col.y > firstH && guard++ < 4){
+      col.y -= firstH;
+      var last = col.cells.pop();
+      col.el.insertBefore(last, col.cells[0] || null);
+      col.cells.unshift(last);
+      feed(last);
+      firstH = col.cells[0].offsetHeight || 160;
+    }
+    col.el.style.transform = 'translateY(' + (col.y - firstH) + 'px)';
+  });
+}
+requestAnimationFrame(loop);
+setInterval(function(){
+  var tw = performance.now() * .001;
+  cols.forEach(function(col, ci){
+    var x = (ci + .5) / cols.length;
+    col.cells.forEach(function(cell, k){
+      var w1 = Math.sin(x * 4.4 + tw * .4) * Math.sin(k * .8 - tw * .27);
+      var o = .55 + .4 * (w1 * .7 + .3 * Math.sin(tw * .5 + cell._ph));
+      cell.style.opacity = Math.max(.08, Math.min(.95, o)).toFixed(2);
+    });
+  });
+}, 160);
+
+fetch('archive_images.json?t=' + Date.now()).then(function(r){ return r.json(); }).then(function(j){
+  for (var d in j) j[d].forEach(function(f){ allPool.push({ d: d, f: f }); });
+  reshuffle();
+  build();
+});
+var rz;
+window.onresize = function(){ clearTimeout(rz); rz = setTimeout(build, 400); };
+</script>
 </body>
 </html>
