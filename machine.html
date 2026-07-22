@@ -422,6 +422,7 @@ function drawEye(now){
     ghost.style.transformOrigin = `${p.x*100}% ${p.y*100}%`;
     ghost.style.transform = `scale(${eyeTarget % 2 ? 1.16 : 1.04})`;
     dwell.type = (dwell.type + 1) % 3;   // 0 survey · 1 vision · 2 object
+    if (dwell.type === 1 && !dinoPatches) dwell.type = 2;
     dwell.birthed = false;
     birthMark = null;               // one reading at a time: clear the last one
     if (dwell.type === 2){
@@ -864,26 +865,42 @@ function showTrace(ev){
     ghost.style.backgroundImage = `url("${encodeURI(ev.image)}")`;
     ghost.style.opacity = .30;
   }, 1600);
-  sampleImage(encodeURI(MODE === 2 ? (ev.machine_image || ev.image) : ev.image));
-  sampleDino(encodeURI(ev.machine_image || ev.image));
-  const frags = (ev.data?.raw_reading || '').split(/\.\s+/).filter(s=>s.length>25&&s.length<90);
-  const interp = ev.data?.first_interpretation;
+  sampleImage(encodeURI(MODE === 2 && ev.machine_image ? ev.machine_image : ev.image));
+  if (ev.machine_image) sampleDino(encodeURI(ev.machine_image));
+  else dinoPatches = null;
+  if (!ev.machine_image && MODE === 2) MODE = 3;   // never mislabel raw pixels as neural
+  const frags = ((ev.data && ev.data.raw_reading) || '').split(/\.\s+/).filter(s=>s.length>25&&s.length<90);
+  const interp = ev.data && ev.data.first_interpretation;
   glossQueue = frags.slice(0,3).map(f=>f.trim().replace(/\.?$/,'.'));
   if (interp) glossQueue.push(interp);
-  pendingPrims = (ev.data?.spatial_reconstruction?.geometry?.primitives || []).slice();
+  pendingPrims = ((ev.data && ev.data.spatial_reconstruction &&
+    ev.data.spatial_reconstruction.geometry &&
+    ev.data.spatial_reconstruction.geometry.primitives) || []).slice();
 }
 window.currentEvHook = ()=>{
   if (currentEv) sampleImage(encodeURI(MODE === 2 ? (currentEv.machine_image || currentEv.image) : currentEv.image));
 };
 function watchClock(){
-  const idx = Math.floor(Date.now() / TRACE_DUR) % events.length;
-  if (idx !== lastIdx){ lastIdx = idx; showTrace(events[idx]); }
+  const n = playlist.length || events.length;
+  const idx = Math.floor(Date.now() / TRACE_DUR) % n;
+  if (idx !== lastIdx){
+    lastIdx = idx;
+    if (playlist.length){
+      const slot = playlist[idx];
+      if (slot.d !== undefined) showTrace(events[slot.d]);
+      else showTrace({ image: slot.o, machine_image: '', data: null,
+                       trace_id: null, pass: 1 });
+    } else {
+      showTrace(events[idx]);
+    }
+  }
   setTimeout(watchClock, 700);
 }
 
 /* ============ boot ============ */
-let segments = {};
+let segments = {}, playlist = [];
 fetch('segments.json?t=' + Date.now()).then(r=>r.json()).then(j=>{ segments = j; }).catch(()=>{});
+fetch('playlist.json?t=' + Date.now()).then(r=>r.json()).then(j=>{ playlist = j.slots; }).catch(()=>{});
 Promise.all([
   fetch('replay_data.json?t=' + Date.now()).then(r=>r.json()),
   fetch('assets/altair_message_1.txt?t=' + Date.now()).then(r=>r.text()),

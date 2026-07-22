@@ -247,14 +247,21 @@ function release(){
   speedTarget = 1;
   document.getElementById('flow').classList.remove('dim');
 }
+var playlist = [];
 function watchClock(){
   var ms = Date.now() % TRACE_DUR;
-  if (replayEvents.length && MAP && Date.now() > manualUntil){
-    var idx = Math.floor(Date.now() / TRACE_DUR) % replayEvents.length;
+  var n = playlist.length || replayEvents.length;
+  if (n && MAP && Date.now() > manualUntil){
+    var idx = Math.floor(Date.now() / TRACE_DUR) % n;
     if (idx !== lastIdx && ms >= HOLD_FROM){
       lastIdx = idx;
-      var ev = replayEvents[idx];
-      arrest(ev.image, ev.trace_id);
+      if (playlist.length){
+        var slot = playlist[idx];
+        var img = (slot.d !== undefined) ? replayEvents[slot.d].image : slot.o;
+        arrest(img, null);
+      } else {
+        arrest(replayEvents[idx].image, null);
+      }
     }
     if (ms >= RELEASE_AT && nbs.length) release();
   }
@@ -265,7 +272,9 @@ Promise.all([
   fetch('archive_images.json?t=' + Date.now()).then(function(r){ return r.json(); }),
   fetch('memory_map.json?t=' + Date.now()).then(function(r){ return r.json(); }),
   fetch('replay_data.json?t=' + Date.now()).then(function(r){ return r.json(); }),
+  fetch('playlist.json?t=' + Date.now()).then(function(r){ return r.json(); }).catch(function(){ return { slots: [] }; }),
 ]).then(function(res){
+  playlist = res[3].slots || [];
   for (var d in res[0]) res[0][d].forEach(function(f){ allPool.push({ d: d, f: f }); });
   reshuffle();
   MAP = res[1].items;
