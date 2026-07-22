@@ -17,7 +17,7 @@
   #ghost{ position:absolute; top:0; left:0; right:0; bottom:0;
     background-size:cover; background-position:center;
     opacity:.30; filter:grayscale(.55) contrast(1.05) brightness(.9);
-    transform:scale(1); transition:opacity 3s ease, transform 7s ease; }
+    transition:opacity 3s ease; }
   #scan{ position:absolute; top:0; left:0; right:0; bottom:0; z-index:2;
     pointer-events:none; }
   #cols{ position:absolute; top:0; left:0; right:0; bottom:0; display:flex; gap:2.2vw;
@@ -178,6 +178,7 @@ function vecLine(){
 }
 /* mode 2 — DINOv2's patch grid, one row at a time, in its own colours */
 function dinoLine(){
+  if (!dinoPatches) return imageLine();   // no neural view → never fake one
   if (!patches) return binChunk(22);
   const y = rowCursor % SGH; rowCursor++;
   let out = '';
@@ -251,6 +252,16 @@ function sizeScan(){ scanCv.width = syntaxEl.clientWidth; scanCv.height = syntax
 sizeScan(); addEventListener('resize', sizeScan);
 
 let pois = [], eyeTarget = 0, eyeX = .5, eyeY = .5, lastJump = 0;
+/* the ghost is drawn with background cover — every overlay must pass
+   through the same mapping or it lands beside the thing it points at */
+function coverMap(w, h){
+  if (!lastImg) return { ox: 0, oy: 0, sw: w, sh: h };
+  const s = Math.max(w / lastImg.width, h / lastImg.height);
+  const sw = lastImg.width * s, sh = lastImg.height * s;
+  return { ox: (w - sw) / 2, oy: (h - sh) / 2, sw, sh };
+}
+function mapX(u, m){ return m.ox + u * m.sw; }
+function mapY(v, m){ return m.oy + v * m.sh; }
 const dwell = { type: 0, birthed: false, flashUntil: 0, flashY: 0 };
 let birthMark = null;   // the detected object's footprint on the image
 let lastBlob = null;
@@ -294,7 +305,7 @@ function measureBlob(poi){
 }
 
 /* ---- fine luminance field per trace: real contours, real detection ---- */
-const FW = 72, FH = 54;
+const FW = 132, FH = 99;
 const fineCv = document.createElement('canvas');
 fineCv.width = FW; fineCv.height = FH;
 const fctx = fineCv.getContext('2d', { willReadFrequently:true });
@@ -348,22 +359,22 @@ function buildFineField(){
 }
 
 /* survey dwell: the real contour map unfurls from the gaze point */
-function drawAnalysis(ex, ey, type, elapsed, now, w, h){
+function drawAnalysis(ex, ey, type, elapsed, now, w, h, cm){
   if (type === 1){
     /* vision dwell: her retina spreads over the region */
-    const vis = dinoPatches || patches;
+    const vis = dinoPatches;
     if (!vis) return;
     const R = Math.min(1, elapsed / 3600) * w * .55;
-    const cw = w / SGW, ch = h / SGH;
+    const cw = cm.sw / SGW, ch = cm.sh / SGH;
     for (let yy = 0; yy < SGH; yy++){
       for (let xx = 0; xx < SGW; xx++){
-        const px = (xx + .5) * cw, py = (yy + .5) * ch;
+        const px = cm.ox + (xx + .5) * cw, py = cm.oy + (yy + .5) * ch;
         const dd = Math.hypot(px - ex, py - ey);
         if (dd > R) continue;
         const a = .34 * Math.max(.25, 1 - dd / (w * .6));
         const i = (yy*SGW + xx) * 4;
         scx.fillStyle = `rgba(${vis[i]},${vis[i+1]},${vis[i+2]},${a.toFixed(3)})`;
-        scx.fillRect(xx*cw + 1, yy*ch + 1, cw - 2, ch - 2);
+        scx.fillRect(px - cw/2 + 1, py - ch/2 + 1, cw - 2, ch - 2);
       }
     }
     return;
@@ -371,7 +382,9 @@ function drawAnalysis(ex, ey, type, elapsed, now, w, h){
   if (type !== 0 || !contourSegs.length) return;
   const R = Math.min(1, elapsed / 3800) * w * .85;
   for (const s of contourSegs){
-    const mx = (s.x1 + s.x2) / 2 * w, my = (s.y1 + s.y2) / 2 * h;
+    const x1 = mapX(s.x1, cm), y1 = mapY(s.y1, cm);
+    const x2 = mapX(s.x2, cm), y2 = mapY(s.y2, cm);
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
     const dd = Math.hypot(mx - ex, my - ey);
     if (dd > R) continue;
     const near = Math.max(0, 1 - dd / (w * .9));
@@ -380,8 +393,8 @@ function drawAnalysis(ex, ey, type, elapsed, now, w, h){
       : `rgba(201,212,222,${(.32 * near + .08).toFixed(3)})`;
     scx.lineWidth = s.li % 4 === 0 ? 1.1 : .7;
     scx.beginPath();
-    scx.moveTo(s.x1 * w, s.y1 * h);
-    scx.lineTo(s.x2 * w, s.y2 * h);
+    scx.moveTo(x1, y1);
+    scx.lineTo(x2, y2);
     scx.stroke();
   }
 }
@@ -419,8 +432,6 @@ function drawEye(now){
       eyeTarget = (eyeTarget + 1) % pois.length;
     }
     const p = pois[eyeTarget];
-    ghost.style.transformOrigin = `${p.x*100}% ${p.y*100}%`;
-    ghost.style.transform = `scale(${eyeTarget % 2 ? 1.16 : 1.04})`;
     dwell.type = (dwell.type + 1) % 3;   // 0 survey · 1 vision · 2 object
     if (dwell.type === 1 && !dinoPatches) dwell.type = 2;
     dwell.birthed = false;
@@ -452,13 +463,26 @@ function drawEye(now){
     pushLog('> ' + V('detect') + ' object q=' + metrics.edge.toFixed(2));
     const stillDrawing = penTravel !== null || built.some(o =>
       o.userData.bornMs !== undefined && (performance.now() - o.userData.bornMs) < BIRTH_SECS * 1000);
-    if (pendingPrims.length && !stillDrawing && lastBlob)
-      spawnPrim(pendingPrims.shift(), pois[eyeTarget], lastBlob);
+    if (!stillDrawing && lastBlob){
+      if (pendingPrims.length){
+        spawnPrim(pendingPrims.shift(), pois[eyeTarget], lastBlob);
+      } else if (lastBlob.iou !== undefined){
+        /* no agent reading here — she asserts only what she measured:
+           a low plinth with the detected footprint. height unmeasured, so none claimed */
+        pushLog('> ' + V('assert') + ' volume conf=' + lastBlob.iou.toFixed(2));
+        spawnPrim({ type: 'box', role: 'mass',
+          approx_scale: '0.3,0.035,0.3',
+          approx_position: '0.5,0.05,0.5',
+          distance_from_input: lastBlob.iou >= .9 ? 'low' : 'medium' },
+          pois[eyeTarget], lastBlob);
+      }
+    }
   }
   const p = pois[eyeTarget];
   eyeX += (p.x - eyeX) * .04;
   eyeY += (p.y - eyeY) * .04;
-  const ex = eyeX*w, ey = eyeY*h;
+  const cm = coverMap(w, h);
+  const ex = mapX(eyeX, cm), ey = mapY(eyeY, cm);
   scx.strokeStyle = 'rgba(201,212,222,.28)';
   scx.lineWidth = 1;
   /* mri crosshair */
@@ -473,14 +497,14 @@ function drawEye(now){
     scx.moveTo(ex+dx*bs, ey+dy*bs-dy*cor); scx.lineTo(ex+dx*bs, ey+dy*bs);
     scx.lineTo(ex+dx*bs-dx*cor, ey+dy*bs); scx.stroke();
   });
-  drawAnalysis(ex, ey, dwell.type, now - lastJump, now, w, h);
+  drawAnalysis(ex, ey, dwell.type, now - lastJump, now, w, h, cm);
   /* the detection: focus brackets on the measured object, her vision inside */
   if (birthMark && dwell.type === 2){
     const bAge = now - birthMark.start;
     if (bAge > 8600){ birthMark = null; }
     else {
-      const bx = birthMark.bx * w, by = birthMark.by * h;
-      const bw = birthMark.bw * w, bh = birthMark.bh * h;
+      const bx = mapX(birthMark.bx, cm), by = mapY(birthMark.by, cm);
+      const bw = birthMark.bw * cm.sw, bh = birthMark.bh * cm.sh;
       const fade = bAge < 7000 ? .9 : .9 * (1 - (bAge - 7000) / 1600);
       scx.strokeStyle = `rgba(238,243,247,${fade.toFixed(3)})`;
       scx.lineWidth = 1.4;
@@ -502,7 +526,7 @@ function drawEye(now){
   pois.forEach((q,i)=>{
     const r = 1.6 + 1.1*Math.abs(Math.sin(now*.002 + i*1.7));
     scx.beginPath();
-    scx.arc(q.x*w, q.y*h, r, 0, Math.PI*2);
+    scx.arc(mapX(q.x, cm), mapY(q.y, cm), r, 0, Math.PI*2);
     scx.fillStyle = i === eyeTarget ? 'rgba(174,188,200,.55)' : 'rgba(108,120,132,.32)';
     scx.fill();
   });
@@ -768,8 +792,9 @@ function loop(){
   if (penTravel){
     const k = Math.min(1, (nowMs - penTravel.start) / penTravel.dur);
     const e = k*k*(3-2*k);           // smoothstep — no impulsive motion
-    const sx = penTravel.nx * (innerWidth * .5);
-    const sy = penTravel.ny * innerHeight;
+    const cmT = coverMap(innerWidth * .5, innerHeight);
+    const sx = mapX(penTravel.nx, cmT);
+    const sy = mapY(penTravel.ny, cmT);
     projV.copy(penTravel.obj.position).project(camera);
     const txp = (projV.x * .5 + .5) * (innerWidth * .5) + innerWidth * .5;
     const typ = (-projV.y * .5 + .5) * innerHeight;
@@ -866,8 +891,8 @@ function showTrace(ev){
     ghost.style.opacity = .30;
   }, 1600);
   sampleImage(encodeURI(MODE === 2 && ev.machine_image ? ev.machine_image : ev.image));
+  dinoPatches = null;
   if (ev.machine_image) sampleDino(encodeURI(ev.machine_image));
-  else dinoPatches = null;
   if (!ev.machine_image && MODE === 2) MODE = 3;   // never mislabel raw pixels as neural
   const frags = ((ev.data && ev.data.raw_reading) || '').split(/\.\s+/).filter(s=>s.length>25&&s.length<90);
   const interp = ev.data && ev.data.first_interpretation;
@@ -888,8 +913,12 @@ function watchClock(){
     if (playlist.length){
       const slot = playlist[idx];
       if (slot.d !== undefined) showTrace(events[slot.d]);
-      else showTrace({ image: slot.o, machine_image: '', data: null,
-                       trace_id: null, pass: 1 });
+      else {
+        const stem = slot.o.replace(/\.[^.]+$/, '');
+        showTrace({ image: slot.o,
+                    machine_image: 'machine_vision_cache/' + stem + '.dinov2.png',
+                    data: null, trace_id: null, pass: 1 });
+      }
     } else {
       showTrace(events[idx]);
     }
