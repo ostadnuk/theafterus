@@ -3,84 +3,897 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>the machine</title>
 <style>
   :root{
-    --bg:#050607; --ink:#d2d6da; --dim:#6a727b; --line:#16181B;
-    --hot:#DADFE6; --warn:#C3401F;
+    --bg:#040507; --ink:#c9d4de; --dim:#5c6670; --line:#121519;
     --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
   }
-  html,body{ margin:0; height:100%; background:var(--bg); overflow:hidden;
-    font-family:var(--mono); }
-  /* iOS Safari inflates iframes to their content size; a clipping wrapper
-     with an explicitly pixel-sized iframe is the standard workaround */
-  .frame-wrap{ position:fixed; inset:0; overflow:hidden;
-    opacity:0; transition:opacity 3.2s ease; pointer-events:none; }
-  .frame-wrap.front{ opacity:1; pointer-events:auto; }
-  .frame-wrap iframe{ border:0; width:100%; height:100%; display:block; }
-  /* during the shift a brief horizontal scan passes — restrained, no bloom */
-  #veil{ position:fixed; inset:0; z-index:8; pointer-events:none; opacity:0;
-    background:linear-gradient(180deg,transparent 0%,rgba(218,223,230,.08) 50%,transparent 100%);
-    background-size:100% 300%; }
-  #veil.on{ opacity:1; animation:sweep 3.2s linear; }
-  @keyframes sweep{ from{ background-position:0 -100%; } to{ background-position:0 200%; } }
-  nav{ position:fixed; top:12px; left:16px; z-index:10; display:flex; gap:18px;
-    font-size:10px; letter-spacing:.22em; text-transform:uppercase; }
-  nav a{ color:var(--dim); text-decoration:none; }
-  nav a.here{ color:var(--hot); }
-  nav a:hover{ color:var(--hot); }
-  #mode{ position:fixed; top:12px; right:16px; z-index:10; font-size:9px;
-    letter-spacing:.18em; text-transform:uppercase; color:var(--dim);
+  html,body{ margin:0; height:100%; background:var(--bg); color:var(--ink);
+    font-family:var(--mono); overflow:hidden; }
+
+  /* ---- left: syntax ---- */
+  #syntax{ position:fixed; top:0; left:0; bottom:0; width:50%; overflow:hidden; }
+  #ghost{ position:absolute; top:0; left:0; right:0; bottom:0;
+    background-size:cover; background-position:center;
+    opacity:.30; filter:grayscale(.55) contrast(1.05) brightness(.9);
+    transform:scale(1); transition:opacity 3s ease, transform 7s ease; }
+  #scan{ position:absolute; top:0; left:0; right:0; bottom:0; z-index:2;
     pointer-events:none; }
-  #mode b{ color:var(--hot); font-weight:normal; }
+  #cols{ position:absolute; top:0; left:0; right:0; bottom:0; display:flex; gap:2.2vw;
+    padding:0 2.2vw;
+    -webkit-mask-image:radial-gradient(circle at 50% 44%,
+      transparent 0%, transparent 17%, rgba(0,0,0,.5) 33%, black 54%);
+    mask-image:radial-gradient(circle at 50% 44%,
+      transparent 0%, transparent 17%, rgba(0,0,0,.5) 33%, black 54%); }
+  #cols.rosetta .col:nth-child(n){ opacity:.9; }
+  .col{ flex:1; font-size:11px; line-height:1.9; color:var(--dim);
+    white-space:pre; overflow:hidden; opacity:.85; }
+  .col b{ color:var(--ink); font-weight:normal; }
+  /* translation flicker */
+  #gloss{ position:absolute; left:6%; right:8%; top:38%; z-index:4;
+    font-size:clamp(16px, 1.7vw, 24px); line-height:1.6; color:#dfe7ee;
+    opacity:0; transition:opacity 1.4s ease; text-shadow:0 0 30px rgba(4,5,7,.9);
+    pointer-events:none; }
+  #gloss.on{ opacity:1; }
+
+  /* ---- right: prediction ---- */
+  #prediction{ position:fixed; top:0; right:0; bottom:0; width:50%; }
+  #prediction canvas{ display:block; }
+
+  #pendot{ position:fixed; width:7px; height:7px; border-radius:50%;
+    background:#eef3f7; z-index:30; pointer-events:none; display:none;
+    transform:translate(-50%,-50%); }
+  #drivehint{ position:fixed; bottom:14px; right:16px; z-index:9; font-size:9px;
+    letter-spacing:.2em; color:#3f474f; text-transform:uppercase; pointer-events:none; }
+  nav{ position:fixed; top:14px; left:16px; z-index:10; display:flex; gap:16px;
+    font-size:11px; letter-spacing:.22em; text-transform:uppercase; }
+  nav a{ color:#5c6670; text-decoration:none; }
+  nav a.here{ color:#DADFE6; }
+  #modehint{ position:fixed; top:36px; left:16px; z-index:9; font-size:10px;
+    letter-spacing:.2em; color:var(--dim); opacity:0; transition:opacity .6s ease;
+    text-transform:uppercase; }
+  #modehint.on{ opacity:.9; }
+
+  /* seam between the halves */
+  #seam{ position:fixed; top:0; bottom:0; left:50%; width:1px;
+    background:linear-gradient(180deg, transparent, #1c2126 30%, #1c2126 70%, transparent); }
 </style>
 </head>
 <body>
 
-<nav>
-  <a class="here" href="machine.html">MACHINE</a>
-  <a href="archive.html">ARCHIVE</a>
-</nav>
-<div id="mode">REGISTER · <b id="modename">—</b></div>
-<div id="veil"></div>
+<div id="syntax">
+  <div id="ghost"></div>
+  <canvas id="scan"></canvas>
+  <div id="cols"></div>
+  <div id="gloss"></div>
+</div>
+<nav><a class="here" href="machine.html">MACHINE</a><a href="recall.html">ARCHIVE</a></nav>
+<div id="pendot"></div>
+<div id="modehint"></div>
+<div id="drivehint">DRIVE · ARCHAEOLOGIST</div>
+<div id="seam"></div>
+<div id="prediction"></div>
 
-<div class="frame-wrap" id="fa"><iframe src="decoder.html" scrolling="no" title="machine vision register"></iframe></div>
-<div class="frame-wrap" id="fb"><iframe src="decoder-june.html" scrolling="no" title="primitives register"></iframe></div>
+<script type="module">
+import * as THREE from './vendor/three.module.js';
 
-<script>
-const SHIFT_EVERY = 170_000;   // ms between register shifts — slow dramaturgy
-const NAMES = { fa:'MACHINE VISION · DINOv2', fb:'PRIMITIVES · 2026-06-19' };
-const a = document.getElementById('fa');
-const b = document.getElementById('fb');
-function sizeFrames(){
-  document.querySelectorAll('.frame-wrap iframe').forEach(f=>{
-    f.style.width = window.innerWidth + 'px';
-    f.style.height = window.innerHeight + 'px';
+/* ============ shared state ============ */
+let events = [], binary = '';
+let glossQueue = [];
+
+/* ============ syntax half ============ */
+const colsEl = document.getElementById('cols');
+const NCOLS = 5;
+const cols = [];
+for (let i = 0; i < NCOLS; i++){
+  const c = document.createElement('div');
+  c.className = 'col';
+  colsEl.appendChild(c);
+  cols.push({ el: c, lines: [], speed: 320 + Math.random()*680, lang: (i % 3) + 1 });
+}
+
+/* ------- the machine's inner voice: instructions it writes to itself ------- */
+const streamLog = [];
+let breathUntil = 0;   // between traces the syntax drains and falls silent
+function pushLog(line){ streamLog.push(line); if (streamLog.length > 40) streamLog.shift(); }
+
+/* ---- three ancient drives run in her at once, unaware of each other ---- */
+const DRIVES = ['ARCHAEOLOGIST', 'REPRODUCER', 'LOST'];
+let drive = 0, traceCount = 0;
+const VERBS = {
+  scan:   ['SCAN',   'PROBE',  null],
+  detect: ['DETECT', 'ASSAY',  null],
+  assert: ['ASSERT', 'MATCH',  null],
+  build:  ['BUILD',  'GRAFT',  null],
+};
+const ROLES_REPRO = { ground:'substrate', wall:'chassis', the_trace:'component',
+  opening:'port', mass:'material', void:'cavity' };
+function V(kind){
+  if (drive === 2){ /* lost: borrows a verb from either era, sometimes broken */
+    const w = VERBS[kind][Math.random() < .5 ? 0 : 1];
+    return Math.random() < .22
+      ? w.split('').map(ch => Math.random() < .4 ? (Math.random()<.5?'▪':'·') : ch).join('')
+      : w;
+  }
+  return VERBS[kind][drive];
+}
+function R(role){
+  role = role || 'mass';
+  if (drive === 1) return ROLES_REPRO[role] || role;
+  if (drive === 2) return Math.random() < .5 ? (ROLES_REPRO[role] || role) : role;
+  return role;
+}
+
+/* ------- three syntax languages, keys 1/2/3 ------- */
+let MODE = 1;   // 1 altair bitstream · 2 DINOv2 patches · 3 the image spelling itself
+const MODE_NAMES = { 1:'SYNTAX · ALTAIR BITSTREAM', 2:'SYNTAX · DINOV2 PATCHES', 3:'SYNTAX · SELF-SPELLING IMAGE', 4:'SYNTAX · ROSETTA — THREE SCRIPTS' };
+
+/* pixel sampler: current trace image downsampled to a patch grid */
+const sampler = document.createElement('canvas');
+const SGW = 22, SGH = 40;
+sampler.width = SGW; sampler.height = SGH;
+const sctx = sampler.getContext('2d', { willReadFrequently:true });
+let patches = null, rowCursor = 0;
+/* a second retina: always the DINOv2 view of the current trace */
+const sampler2 = document.createElement('canvas');
+sampler2.width = SGW; sampler2.height = SGH;
+const dctx = sampler2.getContext('2d', { willReadFrequently:true });
+let dinoPatches = null;
+function sampleDino(src){
+  const im = new Image();
+  im.onload = ()=>{
+    dctx.drawImage(im, 0, 0, SGW, SGH);
+    dinoPatches = dctx.getImageData(0, 0, SGW, SGH).data;
+  };
+  im.src = src;
+}
+let lastImg = null;
+function sampleImage(src){
+  const im = new Image();
+  im.onload = ()=>{
+    lastImg = im;
+    sctx.drawImage(im, 0, 0, SGW, SGH);
+    patches = sctx.getImageData(0, 0, SGW, SGH).data;
+    rowCursor = 0;
+    computePois();
+    buildFineField();
+  };
+  im.src = src;
+}
+
+function binChunk(len){
+  const start = Math.floor(Math.random() * (binary.length - len));
+  return binary.slice(start, start + len)
+    .replace(/1/g, '▪').replace(/0/g, '·');
+}
+function vecLine(){
+  if (!events.length) return binChunk(22);
+  const ev = events[Math.floor(Math.random()*events.length)];
+  const prims = ev.data?.spatial_reconstruction?.geometry?.primitives || [];
+  if (!prims.length || Math.random() < .5) return binChunk(22);
+  const p = prims[Math.floor(Math.random()*prims.length)];
+  const pos = (p.approx_position||'0,0,0').split(',').map(v=>(+v).toFixed(3)).join(' ');
+  return `<b>⟨${pos}⟩</b> ${binChunk(9)}`;
+}
+/* mode 2 — DINOv2's patch grid, one row at a time, in its own colours */
+function dinoLine(){
+  if (!patches) return binChunk(22);
+  const y = rowCursor % SGH; rowCursor++;
+  let out = '';
+  for (let x = 0; x < SGW; x++){
+    const i = (y*SGW + x) * 4;
+    const r = patches[i], g = patches[i+1], b = patches[i+2];
+    out += `<span style="color:rgb(${r},${g},${b})">▮</span>`;
+  }
+  return out;
+}
+/* mode 3 — the input image disassembles into density glyphs */
+const GLYPHS = [' ','·','∙','▪','▮','█'];
+function imageLine(){
+  if (!patches) return binChunk(22);
+  const y = rowCursor % SGH; rowCursor++;
+  let out = '';
+  for (let x = 0; x < SGW; x++){
+    const i = (y*SGW + x) * 4;
+    const lum = (patches[i]*.3 + patches[i+1]*.59 + patches[i+2]*.11) / 255;
+    out += GLYPHS[Math.min(5, Math.floor(lum * 6))];
+  }
+  return out;
+}
+function makeLine(c){
+  /* the machine's own instructions take priority — the stream MEANS something */
+  if (streamLog.length && Math.random() < .6) return '<b>' + streamLog.shift() + '</b>';
+  const m = (MODE === 4) ? c.lang : MODE;
+  if (m === 2) return dinoLine();
+  if (m === 3) return Math.random() < .1 ? vecLine() : imageLine();
+  return Math.random() < .18 ? vecLine() : binChunk(22);
+}
+function feedCol(c){
+  if (performance.now() < breathUntil){
+    /* exhale: the columns empty out fast, a second of near-silence */
+    c.lines.shift(); c.lines.shift();
+    c.el.innerHTML = c.lines.join('\n');
+    setTimeout(()=>feedCol(c), 70);
+    return;
+  }
+  c.lines.push(makeLine(c));
+  if (c.lines.length > 60) c.lines.shift();
+  c.el.innerHTML = c.lines.join('\n');
+  c.el.scrollTop = c.el.scrollHeight;
+  setTimeout(()=>feedCol(c), c.speed);
+}
+const modeHint = document.getElementById('modehint');
+addEventListener('keydown', e=>{
+  if (e.key === '0'){
+    GLOSS_ON = !GLOSS_ON;
+    glossEl.classList.remove('on');
+    modeHint.textContent = GLOSS_ON ? 'TRANSLATION · ON' : 'TRANSLATION · OFF';
+    modeHint.classList.add('on');
+    setTimeout(()=>modeHint.classList.remove('on'), 2600);
+    return;
+  }
+  if (['1','2','3','4'].includes(e.key)){
+    MODE = +e.key;
+    cols.forEach(c=>{ c.lines = []; });
+    if (window.currentEvHook) window.currentEvHook();
+    modeHint.textContent = MODE_NAMES[MODE];
+    modeHint.classList.add('on');
+    setTimeout(()=>modeHint.classList.remove('on'), 2600);
+  }
+});
+
+/* ------- the searching eye: POIs from real pixel contrast ------- */
+const syntaxEl = document.getElementById('syntax');
+const scanCv = document.getElementById('scan');
+const scx = scanCv.getContext('2d');
+function sizeScan(){ scanCv.width = syntaxEl.clientWidth; scanCv.height = syntaxEl.clientHeight; }
+sizeScan(); addEventListener('resize', sizeScan);
+
+let pois = [], eyeTarget = 0, eyeX = .5, eyeY = .5, lastJump = 0;
+const dwell = { type: 0, birthed: false, flashUntil: 0, flashY: 0 };
+let birthMark = null;   // the detected object's footprint on the image
+let lastBlob = null;
+/* region-growing from the gaze point: the machine actually measures the thing */
+function growFrom(cx, cy){
+  const base = FL[cy*FW + cx];
+  const TH = 26, MAX = 1100;
+  const seen = new Set([cy*FW + cx]);
+  const queue = [[cx, cy]];
+  let minX = cx, maxX = cx, minY = cy, maxY = cy;
+  while (queue.length && seen.size < MAX){
+    const cell = queue.shift();
+    for (const dxy of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nx = cell[0]+dxy[0], ny = cell[1]+dxy[1];
+      if (nx < 0 || ny < 0 || nx >= FW || ny >= FH) continue;
+      const key = ny*FW + nx;
+      if (seen.has(key)) continue;
+      if (Math.abs(FL[key] - base) > TH) continue;
+      seen.add(key); queue.push([nx, ny]);
+      if (nx < minX) minX = nx; if (nx > maxX) maxX = nx;
+      if (ny < minY) minY = ny; if (ny > maxY) maxY = ny;
+    }
+  }
+  return { x: minX/FW, y: minY/FH,
+           w: (maxX-minX+1)/FW, h: (maxY-minY+1)/FH };
+}
+/* several seeds around the gaze; keep the smallest convincing bound.
+   a runaway grow means there is no discrete object — and she admits it */
+function measureBlob(poi){
+  if (!FL) return null;
+  const cx = Math.max(2, Math.min(FW-3, Math.floor(poi.x * FW)));
+  const cy = Math.max(2, Math.min(FH-3, Math.floor(poi.y * FH)));
+  let best = null;
+  for (const s of [[0,0],[2,0],[-2,0],[0,2],[0,-2]]){
+    const b = growFrom(cx + s[0], cy + s[1]);
+    const area = b.w * b.h;
+    if (area > .38 || b.w < .05 || b.h < .05) continue;
+    if (!best || area < best.w * best.h) best = b;
+  }
+  return best;
+}
+
+/* ---- fine luminance field per trace: real contours, real detection ---- */
+const FW = 72, FH = 54;
+const fineCv = document.createElement('canvas');
+fineCv.width = FW; fineCv.height = FH;
+const fctx = fineCv.getContext('2d', { willReadFrequently:true });
+let FL = null;
+let contourSegs = [];
+const metrics = { topo:.5, edge:.5 };
+
+function buildFineField(){
+  if (!lastImg) return;
+  fctx.drawImage(lastImg, 0, 0, FW, FH);
+  const d = fctx.getImageData(0, 0, FW, FH).data;
+  const raw = new Float32Array(FW*FH);
+  for (let i = 0; i < FW*FH; i++) raw[i] = d[i*4]*.3 + d[i*4+1]*.59 + d[i*4+2]*.11;
+  FL = new Float32Array(FW*FH);
+  for (let y = 0; y < FH; y++) for (let x = 0; x < FW; x++){
+    let s = 0, n = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++){
+      const xx = x+dx, yy = y+dy;
+      if (xx < 0 || yy < 0 || xx >= FW || yy >= FH) continue;
+      s += raw[yy*FW+xx]; n++;
+    }
+    FL[y*FW+x] = s / n;
+  }
+  let mean = 0; for (let i = 0; i < FW*FH; i++) mean += FL[i];
+  mean /= FW*FH;
+  let sd = 0, grad = 0;
+  for (let i = 0; i < FW*FH; i++) sd += (FL[i]-mean)**2;
+  for (let y = 0; y < FH; y++) for (let x = 1; x < FW; x++) grad += Math.abs(FL[y*FW+x]-FL[y*FW+x-1]);
+  metrics.topo = Math.min(1, Math.sqrt(sd/(FW*FH)) / 80);
+  metrics.edge = Math.min(1, grad / (FW*FH*40));
+  /* marching squares — the survey map, computed from the actual pixels */
+  contourSegs = [];
+  let lo = Infinity, hi = -Infinity;
+  for (let i = 0; i < FW*FH; i++){ if (FL[i] < lo) lo = FL[i]; if (FL[i] > hi) hi = FL[i]; }
+  const NLEV = 9;
+  for (let li = 1; li < NLEV; li++){
+    const lev = lo + (hi - lo) * li / NLEV;
+    for (let y = 0; y < FH-1; y++) for (let x = 0; x < FW-1; x++){
+      const a = FL[y*FW+x], b = FL[y*FW+x+1], c = FL[(y+1)*FW+x+1], e = FL[(y+1)*FW+x];
+      const pts = [];
+      const lerp = (v0, v1) => (lev - v0) / (v1 - v0);
+      if ((a < lev) !== (b < lev)) pts.push([x + lerp(a,b), y]);
+      if ((b < lev) !== (c < lev)) pts.push([x + 1, y + lerp(b,c)]);
+      if ((e < lev) !== (c < lev)) pts.push([x + lerp(e,c), y + 1]);
+      if ((a < lev) !== (e < lev)) pts.push([x, y + lerp(a,e)]);
+      if (pts.length >= 2)
+        contourSegs.push({ x1: pts[0][0]/FW, y1: pts[0][1]/FH,
+                           x2: pts[1][0]/FW, y2: pts[1][1]/FH, li });
+    }
+  }
+}
+
+/* survey dwell: the real contour map unfurls from the gaze point */
+function drawAnalysis(ex, ey, type, elapsed, now, w, h){
+  if (type === 1){
+    /* vision dwell: her retina spreads over the region */
+    const vis = dinoPatches || patches;
+    if (!vis) return;
+    const R = Math.min(1, elapsed / 3600) * w * .55;
+    const cw = w / SGW, ch = h / SGH;
+    for (let yy = 0; yy < SGH; yy++){
+      for (let xx = 0; xx < SGW; xx++){
+        const px = (xx + .5) * cw, py = (yy + .5) * ch;
+        const dd = Math.hypot(px - ex, py - ey);
+        if (dd > R) continue;
+        const a = .34 * Math.max(.25, 1 - dd / (w * .6));
+        const i = (yy*SGW + xx) * 4;
+        scx.fillStyle = `rgba(${vis[i]},${vis[i+1]},${vis[i+2]},${a.toFixed(3)})`;
+        scx.fillRect(xx*cw + 1, yy*ch + 1, cw - 2, ch - 2);
+      }
+    }
+    return;
+  }
+  if (type !== 0 || !contourSegs.length) return;
+  const R = Math.min(1, elapsed / 3800) * w * .85;
+  for (const s of contourSegs){
+    const mx = (s.x1 + s.x2) / 2 * w, my = (s.y1 + s.y2) / 2 * h;
+    const dd = Math.hypot(mx - ex, my - ey);
+    if (dd > R) continue;
+    const near = Math.max(0, 1 - dd / (w * .9));
+    scx.strokeStyle = s.li % 4 === 0
+      ? `rgba(143,216,232,${(.5 * near + .12).toFixed(3)})`
+      : `rgba(201,212,222,${(.32 * near + .08).toFixed(3)})`;
+    scx.lineWidth = s.li % 4 === 0 ? 1.1 : .7;
+    scx.beginPath();
+    scx.moveTo(s.x1 * w, s.y1 * h);
+    scx.lineTo(s.x2 * w, s.y2 * h);
+    scx.stroke();
+  }
+}
+
+function lum(i){ return patches[i]*.3 + patches[i+1]*.59 + patches[i+2]*.11; }
+function computePois(){
+  if (!patches) return;
+  const scored = [];
+  for (let y = 1; y < SGH-1; y++) for (let x = 1; x < SGW-1; x++){
+    const c = lum((y*SGW+x)*4);
+    const contrast = Math.abs(c - lum((y*SGW+x-1)*4)) + Math.abs(c - lum(((y-1)*SGW+x)*4));
+    scored.push({ x:(x+.5)/SGW, y:(y+.5)/SGH, s:contrast });
+  }
+  scored.sort((a,b)=>b.s-a.s);
+  pois = [];
+  for (const cand of scored){
+    if (pois.length >= 6) break;
+    if (pois.every(q=>Math.hypot(q.x-cand.x, q.y-cand.y) > .22)) pois.push(cand);
+  }
+  eyeTarget = 0; lastJump = performance.now();
+}
+function drawEye(now){
+  requestAnimationFrame(drawEye);
+  const w = scanCv.width, h = scanCv.height;
+  scx.clearRect(0, 0, w, h);
+  if (!pois.length) return;
+  if (now - lastJump > 4200){
+    lastJump = now;
+    if (drive === 1 && Math.random() < .45){
+      /* the reproducer returns, obsessively, to the same component */
+    } else if (drive === 2 && Math.random() < .3){
+      /* the lost one stares at nothing in particular */
+      eyeTarget = Math.floor(Math.random() * pois.length);
+    } else {
+      eyeTarget = (eyeTarget + 1) % pois.length;
+    }
+    const p = pois[eyeTarget];
+    ghost.style.transformOrigin = `${p.x*100}% ${p.y*100}%`;
+    ghost.style.transform = `scale(${eyeTarget % 2 ? 1.16 : 1.04})`;
+    dwell.type = (dwell.type + 1) % 3;   // 0 survey · 1 vision · 2 object
+    dwell.birthed = false;
+    birthMark = null;               // one reading at a time: clear the last one
+    if (dwell.type === 2){
+      /* real model output: the SAM segment nearest to the gaze */
+      const segs = (currentEv && segments[currentEv.image]) || [];
+      let bestSeg = null, bestD = 1e9;
+      for (const s of segs){
+        const d = Math.hypot(s.x + s.w/2 - p.x, s.y + s.h/2 - p.y);
+        if (d < bestD){ bestD = d; bestSeg = s; }
+      }
+      lastBlob = (bestSeg && bestD < .38)
+        ? { x: bestSeg.x, y: bestSeg.y, w: bestSeg.w, h: bestSeg.h, iou: bestSeg.iou }
+        : measureBlob(p);
+      if (lastBlob){
+        birthMark = { bx: lastBlob.x, by: lastBlob.y, bw: lastBlob.w, bh: lastBlob.h,
+          iou: lastBlob.iou, start: performance.now() };
+      } else {
+        birthMark = null;
+        pushLog('> ' + V('detect') + ' continuum — no object');
+      }
+    }
+    pushLog('> ' + V('scan') + ' ⟨' + p.x.toFixed(3) + ' ' + p.y.toFixed(3) + '⟩ · ' + ['SURVEY','VISION','OBJECT'][dwell.type]);
+  }
+  /* reading complete → a structure is born on the other side, same coordinates */
+  if (!dwell.birthed && dwell.type === 2 && now - lastJump > 1900){
+    dwell.birthed = true;
+    pushLog('> ' + V('detect') + ' object q=' + metrics.edge.toFixed(2));
+    const stillDrawing = penTravel !== null || built.some(o =>
+      o.userData.bornMs !== undefined && (performance.now() - o.userData.bornMs) < BIRTH_SECS * 1000);
+    if (pendingPrims.length && !stillDrawing && lastBlob)
+      spawnPrim(pendingPrims.shift(), pois[eyeTarget], lastBlob);
+  }
+  const p = pois[eyeTarget];
+  eyeX += (p.x - eyeX) * .04;
+  eyeY += (p.y - eyeY) * .04;
+  const ex = eyeX*w, ey = eyeY*h;
+  scx.strokeStyle = 'rgba(201,212,222,.28)';
+  scx.lineWidth = 1;
+  /* mri crosshair */
+  scx.beginPath(); scx.moveTo(0, ey); scx.lineTo(w, ey);
+  scx.moveTo(ex, 0); scx.lineTo(ex, h); scx.stroke();
+  /* dwell box with corner ticks */
+  const bs = 74;
+  scx.strokeStyle = 'rgba(223,231,238,.55)';
+  const cor = 12;
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([dx,dy])=>{
+    scx.beginPath();
+    scx.moveTo(ex+dx*bs, ey+dy*bs-dy*cor); scx.lineTo(ex+dx*bs, ey+dy*bs);
+    scx.lineTo(ex+dx*bs-dx*cor, ey+dy*bs); scx.stroke();
   });
+  drawAnalysis(ex, ey, dwell.type, now - lastJump, now, w, h);
+  /* the detection: focus brackets on the measured object, her vision inside */
+  if (birthMark && dwell.type === 2){
+    const bAge = now - birthMark.start;
+    if (bAge > 8600){ birthMark = null; }
+    else {
+      const bx = birthMark.bx * w, by = birthMark.by * h;
+      const bw = birthMark.bw * w, bh = birthMark.bh * h;
+      const fade = bAge < 7000 ? .9 : .9 * (1 - (bAge - 7000) / 1600);
+      scx.strokeStyle = `rgba(238,243,247,${fade.toFixed(3)})`;
+      scx.lineWidth = 1.4;
+      const cl = Math.max(9, Math.min(bw, bh) * .28);
+      [[bx,by,1,1],[bx+bw,by,-1,1],[bx,by+bh,1,-1],[bx+bw,by+bh,-1,-1]].forEach(c=>{
+        scx.beginPath();
+        scx.moveTo(c[0] + c[2]*cl, c[1]);
+        scx.lineTo(c[0], c[1]);
+        scx.lineTo(c[0], c[1] + c[3]*cl);
+        scx.stroke();
+      });
+      scx.font = '10px ui-monospace, Menlo, monospace';
+      scx.fillStyle = `rgba(238,243,247,${(fade*.95).toFixed(3)})`;
+      scx.fillText('OBJECT · ' + birthMark.bw.toFixed(2) + ' × ' + birthMark.bh.toFixed(2)
+        + (birthMark.iou ? ' · conf ' + birthMark.iou.toFixed(2) : ''), bx, by - 7);
+    }
+  }
+  /* pulsing blips on every candidate */
+  pois.forEach((q,i)=>{
+    const r = 1.6 + 1.1*Math.abs(Math.sin(now*.002 + i*1.7));
+    scx.beginPath();
+    scx.arc(q.x*w, q.y*h, r, 0, Math.PI*2);
+    scx.fillStyle = i === eyeTarget ? 'rgba(174,188,200,.55)' : 'rgba(108,120,132,.32)';
+    scx.fill();
+  });
+  /* coordinates by the box */
+  scx.font = '10px ui-monospace, Menlo, monospace';
+  scx.fillStyle = 'rgba(201,212,222,.6)';
+  scx.fillText('⟨' + eyeX.toFixed(3) + ' ' + eyeY.toFixed(3) + '⟩', ex + bs + 8, ey - 6);
 }
-sizeFrames();
-addEventListener('resize', sizeFrames);
-addEventListener('orientationchange', ()=>setTimeout(sizeFrames, 300));
-const veil = document.getElementById('veil');
-const modeEl = document.getElementById('modename');
-let front = a;
+requestAnimationFrame(drawEye);
 
-function show(el){
-  front = el;
-  a.classList.toggle('front', el===a);
-  b.classList.toggle('front', el===b);
-  modeEl.textContent = NAMES[el.id];
+/* translation flicker: a fragment resolves, holds, dissolves */
+const glossEl = document.getElementById('gloss');
+let GLOSS_ON = false;  // off by default — key 0 brings the translation moments back
+/* degraded translation: only some words resolve; the rest stay in her language */
+function degrade(s){
+  return s.split(' ').map(w=>{
+    if (Math.random() < .45) return w;               // resolved
+    return w.replace(/[A-Za-z]/g, ()=> Math.random() < .5 ? '▪' : '·');
+  }).join(' ');
 }
-function shift(){
-  veil.classList.add('on');
-  setTimeout(()=>veil.classList.remove('on'), 3300);
-  show(front===a ? b : a);
+function nextGloss(){
+  const delay = 9000 + Math.random()*7000;
+  setTimeout(()=>{
+    if (GLOSS_ON && glossQueue.length){
+      glossEl.textContent = degrade(glossQueue.shift());
+      glossEl.classList.add('on');
+      setTimeout(()=>glossEl.classList.remove('on'), 4200);
+    }
+    nextGloss();
+  }, delay);
 }
-show(a);
-setInterval(shift, SHIFT_EVERY);
+
+/* ============ prediction half ============ */
+const holder = document.getElementById('prediction');
+const W = () => holder.clientWidth, H = () => holder.clientHeight;
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(W(), H());
+holder.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x040507);
+scene.fog = new THREE.Fog(0x040507, 9, 26);
+const camera = new THREE.PerspectiveCamera(42, W()/H(), .1, 100);
+
+const grid = new THREE.GridHelper(40, 60, 0x10141a, 0x0b0e12);
+scene.add(grid);
+const focusPos = new THREE.Vector3();
+let focusUntil = 0;
+/* the machine studies its own construction from many vantages */
+const CAM_MODES = ['orbit', 'top', 'far', 'low'];
+let camMode = 'orbit', camModeUntil = 0;
+const camTarget = new THREE.Vector3(0, 1.1, 0);
+const restTarget = new THREE.Vector3(0, 1.1, 0);
+const idealPos = new THREE.Vector3();
+
+let penTravel = null;
+const pendotEl = document.getElementById('pendot');
+const projV = new THREE.Vector3();
+const invented = [];   // hue-cycling, low-certainty structures
+const built = [];
+/* the pen: a bright point that physically traces each newborn structure */
+const pen = new THREE.Mesh(new THREE.SphereGeometry(.06, 8, 8),
+  new THREE.MeshBasicMaterial({ color:0xeef3f7 }));
+pen.visible = false; scene.add(pen);
+const penPos = new THREE.Vector3();
+const birthWhite = new THREE.Color(0xeef3f7);
+const BIRTH_SECS = 4.2, SETTLE_SECS = 1.6;
+
+/* primitives are no longer auto-spawned: each one is BORN when the eye
+   finishes reading a point — position derived from where the eye looked */
+let pendingPrims = [];
+const tags = [];
+function makeTag(text){
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 56;
+  const c = cv.getContext('2d');
+  c.font = '26px ui-monospace, Menlo, monospace';
+  c.fillStyle = '#dfe7ee'; c.fillText(text, 6, 38);
+  const tex = new THREE.CanvasTexture(cv);
+  const mat = new THREE.SpriteMaterial({ map:tex, transparent:true, opacity:.95, depthTest:false });
+  const s = new THREE.Sprite(mat);
+  s.scale.set(2.4, .52, 1);
+  return s;
+}
+function dinoColorOf(blob){
+  const vis = dinoPatches || patches;
+  const fallback = new THREE.Color(0xc9d4de);
+  if (!vis || !blob) return fallback;
+  const x0 = Math.floor(blob.x * SGW), y0 = Math.floor(blob.y * SGH);
+  const x1 = Math.max(x0+1, Math.ceil((blob.x + blob.w) * SGW));
+  const y1 = Math.max(y0+1, Math.ceil((blob.y + blob.h) * SGH));
+  let r = 0, g = 0, b = 0, n = 0;
+  for (let yy = y0; yy < y1; yy++) for (let xx = x0; xx < x1; xx++){
+    const i = (Math.min(SGH-1,yy)*SGW + Math.min(SGW-1,xx)) * 4;
+    r += vis[i]; g += vis[i+1]; b += vis[i+2]; n++;
+  }
+  if (!n) return fallback;
+  return new THREE.Color(r/n/255, g/n/255, b/n/255);
+}
+
+function spawnPrim(p, poi, blob){
+  const scl = (p.approx_scale||'0.3,0.3,0.3').split(',').map(Number);
+  const posY = (p.approx_position||'0.5,0.2,0.5').split(',').map(Number)[1];
+  /* the eye's coordinates become the structure's place in the world */
+  const x = (poi.x - .5) * 10, z = (poi.y - .5) * 10, y = Math.max(.05, posY * 3);
+  /* footprint measured at the detection dwell */
+  const sx = Math.max(.25, blob.w * 6), sz = Math.max(.25, blob.h * 6);
+  const sy = Math.max(.08, scl[1] * 4);
+  const role = p.role || 'mass';
+  /* form follows the machine's own claim about what a thing IS */
+  let geo, edges;
+  if (p.type === 'void'){
+    /* an absence: only the eight corners are held — a place kept for something gone */
+    const hx = sx/2, hy = Math.max(sy, .5)/2, hz = sz/2;
+    const tick = Math.min(hx, hy, hz) * .5;
+    const pts = [];
+    for (const cx of [-1, 1]) for (const cy of [-1, 1]) for (const cz of [-1, 1]){
+      const X = cx*hx, Y = cy*hy, Z = cz*hz;
+      pts.push(X, Y, Z,  X - cx*tick, Y, Z);
+      pts.push(X, Y, Z,  X, Y - cy*tick, Z);
+      pts.push(X, Y, Z,  X, Y, Z - cz*tick);
+    }
+    edges = new THREE.BufferGeometry();
+    edges.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    geo = null;   // absence has no volume to fill
+  } else if (role === 'opening'){
+    /* a threshold: a hollow standing frame, nothing inside */
+    geo = new THREE.PlaneGeometry(sx, Math.max(sy, .6));
+    edges = new THREE.EdgesGeometry(geo);
+  } else if (role === 'ground'){
+    geo = new THREE.BoxGeometry(sx, .04, sz);
+    /* a surveyed surface: outline plus measuring lines */
+    const pts = [];
+    const hx = sx/2, hz = sz/2;
+    for (let k = 1; k < 4; k++){
+      const zz = -hz + (sz * k / 4);
+      pts.push(-hx, 0, zz,  hx, 0, zz);
+    }
+    const extra = new THREE.BufferGeometry();
+    extra.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    const base = new THREE.EdgesGeometry(geo);
+    const merged = [];
+    const bp = base.attributes.position;
+    for (let k = 0; k < bp.count; k++) merged.push(bp.getX(k), bp.getY(k), bp.getZ(k));
+    for (let k = 0; k < pts.length; k++) merged.push(pts[k]);
+    edges = new THREE.BufferGeometry();
+    edges.setAttribute('position', new THREE.Float32BufferAttribute(merged, 3));
+  } else if (p.type === 'plane'){
+    geo = new THREE.BoxGeometry(sx, .04, sz);
+    edges = new THREE.EdgesGeometry(geo);
+  } else if (p.type === 'line'){
+    geo = new THREE.BoxGeometry(sx, .04, .04);
+    edges = new THREE.EdgesGeometry(geo);
+  } else {
+    geo = new THREE.BoxGeometry(sx, sy, sz);
+    edges = new THREE.EdgesGeometry(geo);
+  }
+  const dist = p.distance_from_input || 'high';
+  /* the city remembers her retina: each structure keeps the colour she saw there */
+  const seen = dinoColorOf(blob);
+  const hsl = {};
+  seen.getHSL(hsl);
+  let mat, obj;
+  if (dist === 'low'){
+    const c = new THREE.Color().setHSL(hsl.h, Math.min(.55, hsl.s * .9), .68);
+    mat = new THREE.LineBasicMaterial({ color:c, transparent:true, opacity:.85 });
+    obj = new THREE.LineSegments(edges, mat);
+  } else if (dist === 'medium'){
+    const c = new THREE.Color().setHSL(hsl.h, Math.min(.35, hsl.s * .6), .5);
+    mat = new THREE.LineBasicMaterial({ color:c, transparent:true, opacity:.45 });
+    obj = new THREE.LineSegments(edges, mat);
+  } else {
+    mat = new THREE.LineDashedMaterial({ color:0x9fb4c8, transparent:true,
+      opacity:.6, dashSize:.14, gapSize:.11 });
+    obj = new THREE.LineSegments(edges, mat);
+    obj.computeLineDistances();
+    obj.userData.iridescent = true;
+    obj.userData.phase = Math.random()*Math.PI*2;
+    obj.userData.baseHue = hsl.h;
+    /* a faint volume of colour — thin lines alone cannot carry iridescence */
+    if (geo){
+      const fill = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+        transparent:true, opacity:0, depthWrite:false, side:THREE.DoubleSide }));
+      obj.add(fill);
+      obj.userData.fill = fill;
+    }
+    invented.push(obj);
+  }
+  /* double stroke: a faint second pass gives the 1px webgl line a pencil body;
+     the_trace — the subject itself — presses harder */
+  const echo = new THREE.LineSegments(edges,
+    new THREE.LineBasicMaterial({ color: mat.color.clone(), transparent:true,
+      opacity: role === 'the_trace' ? .17 : .07 }));
+  echo.scale.setScalar(role === 'the_trace' ? 1.025 : 1.012);
+  obj.add(echo);
+  if (role !== 'ground' && p.type !== 'plane'){
+    /* surveyor's chalk: a faint footprint ring pinning it to the ground */
+    const ringGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(sx*1.18, .001, (p.type==='line'? .3 : sz*1.18)));
+    const ring = new THREE.LineSegments(ringGeo,
+      new THREE.LineBasicMaterial({ color:0x39424c, transparent:true, opacity:0 }));
+    ring.position.y = -y + .012;
+    obj.add(ring);
+    obj.userData.ring = ring;
+  }
+  if (role === 'opening') obj.rotation.y = Math.random() * Math.PI;
+  obj.userData.bornMs = performance.now() + 1200;  // the pen crosses the seam first
+  penTravel = { nx: poi.x, ny: poi.y, obj, start: performance.now(), dur: 1200 };
+  obj.userData.finalColor = mat.color.clone();
+  obj.userData.baseOpacity = mat.opacity;
+  mat.opacity = 0;
+  obj.position.set(x, y, z);
+  scene.add(obj);
+  built.push(obj);
+  /* the structure draws itself, edge by edge; the camera leans in to watch */
+  obj.userData.drawTotal = obj.geometry.attributes.position.count;
+  obj.geometry.setDrawRange(0, 0);
+  /* lean in only occasionally — attention as a gesture, not a reflex */
+  const nowMs = performance.now();
+  if (nowMs > (window.__lastFocusEnd || 0) + 15000){
+    focusPos.set(x, y, z);
+    focusUntil = nowMs + 6000;
+    window.__lastFocusEnd = focusUntil;
+  }
+  pushLog('> ' + V('assert') + ' ' + (p.type||'box') + ' role=' + R(p.role) + ' dist=' + dist);
+  pushLog('> ' + V('build') + ' @ ⟨' + poi.x.toFixed(3) + ' ' + poi.y.toFixed(3) + '⟩');
+  if (built.length > 46){
+    const old = built.shift();
+    scene.remove(old);
+    const ix = invented.indexOf(old); if (ix >= 0) invented.splice(ix,1);
+  }
+}
+
+let t = 0;
+const irColor = new THREE.Color();
+function loop(){
+  requestAnimationFrame(loop);
+  t += .0016;
+  /* the camera attends: pulls toward each newborn structure, then drifts back */
+  const nowMs = performance.now();
+  const focusing = nowMs < focusUntil;
+  if (!focusing && nowMs > camModeUntil){
+    let next; do { next = CAM_MODES[Math.floor(Math.random()*CAM_MODES.length)]; } while (next === camMode);
+    camMode = next;
+    camModeUntil = nowMs + 32000 + Math.random()*20000;
+    pushLog('> VIEW ' + camMode.toUpperCase());
+  }
+  if (focusing){
+    idealPos.set(Math.sin(t*.35)*7.2, 3.4, Math.cos(t*.35)*7.2).addScaledVector(focusPos, .45);
+  } else if (camMode === 'top'){
+    /* plan view: the reconstruction as a survey map */
+    idealPos.set(Math.sin(t*.09)*2.6, 16, Math.cos(t*.09)*2.6);
+  } else if (camMode === 'far'){
+    idealPos.set(Math.sin(t*.22)*19, 7.6 + Math.sin(t*.11), Math.cos(t*.22)*19);
+  } else if (camMode === 'low'){
+    idealPos.set(Math.sin(t*.3)*7, 1.35, Math.cos(t*.3)*7);
+  } else {
+    idealPos.set(Math.sin(t*.35)*11, 4.6 + Math.sin(t*.13)*.8, Math.cos(t*.35)*11);
+  }
+  camera.position.lerp(idealPos, .009);
+  camTarget.lerp(focusing ? focusPos : restTarget, .014);
+  camera.lookAt(camTarget);
+  /* iridescence: hue drifts slowly through a cold arc — colour as physics */
+  /* the white point crosses from the image into the built space */
+  if (penTravel){
+    const k = Math.min(1, (nowMs - penTravel.start) / penTravel.dur);
+    const e = k*k*(3-2*k);           // smoothstep — no impulsive motion
+    const sx = penTravel.nx * (innerWidth * .5);
+    const sy = penTravel.ny * innerHeight;
+    projV.copy(penTravel.obj.position).project(camera);
+    const txp = (projV.x * .5 + .5) * (innerWidth * .5) + innerWidth * .5;
+    const typ = (-projV.y * .5 + .5) * innerHeight;
+    pendotEl.style.display = 'block';
+    pendotEl.style.left = (sx + (txp - sx) * e) + 'px';
+    pendotEl.style.top  = (sy + (typ - sy) * e) + 'px';
+    if (k >= 1){ pendotEl.style.display = 'none'; penTravel = null; }
+  } else {
+    pendotEl.style.display = 'none';
+  }
+  let penPlaced = false;
+  built.forEach(o=>{
+    if (o.userData.bornMs === undefined) return;
+    const age = (nowMs - o.userData.bornMs) / 1000;
+    if (age < 0){ o.material.opacity = 0; return; }
+    const ramp = Math.min(1, age / BIRTH_SECS);
+    if (o.userData.drawTotal){
+      const n = 2 * Math.floor(o.userData.drawTotal * ramp / 2);
+      o.geometry.setDrawRange(0, n);
+      if (ramp < 1 && !penPlaced && n > 0){
+        const attr = o.geometry.attributes.position;
+        penPos.fromBufferAttribute(attr, Math.min(attr.count - 1, Math.max(0, n - 1)));
+        o.localToWorld(penPos);
+        pen.position.copy(penPos);
+        pen.visible = true;
+        penPlaced = true;
+      }
+    }
+    if (ramp < 1){
+      /* being born: white-hot, fully present — unmistakably THE new one */
+      o.material.color.copy(birthWhite);
+      o.material.opacity = .95;
+    } else if (!o.userData.settled){
+      /* cooling: ease from birth-white into its final certainty material */
+      const s = Math.min(1, (age - BIRTH_SECS) / SETTLE_SECS);
+      o.material.color.copy(birthWhite).lerp(o.userData.finalColor, s);
+      o.material.opacity = .95 + (o.userData.baseOpacity - .95) * s;
+      if (o.userData.ring) o.userData.ring.material.opacity = .2 * s;
+      if (s >= 1) o.userData.settled = true;
+    }
+  });
+  if (!penPlaced) pen.visible = false;
+  invented.forEach(o=>{
+    if (!o.userData.settled) return;   // don't breathe until fully born
+    /* iridescence you can actually see: saturated, ~7s hue wander cyan→violet */
+    const h = ((o.userData.baseHue ?? .5) + .09*Math.sin(nowMs*.0009 + o.userData.phase) + 1) % 1;
+    irColor.setHSL(h, .7, .62);
+    o.material.color.copy(irColor);
+    /* uncertainty breathes: ~4s cycle, wider swing */
+    o.material.opacity = .55 + .3*Math.sin(nowMs*.0016 + o.userData.phase);
+    if (o.userData.fill){
+      o.userData.fill.material.color.copy(irColor);
+      o.userData.fill.material.opacity = .085 + .05*Math.sin(nowMs*.0016 + o.userData.phase);
+    }
+  });
+  for (let i = tags.length - 1; i >= 0; i--){
+    const g = tags[i], age = t - g.userData.bornAt;
+    g.material.opacity = age < .004 ? .95 : Math.max(0, .95 - (age - .004) / .004);
+    if (g.material.opacity <= 0){ scene.remove(g); tags.splice(i, 1); }
+  }
+  renderer.render(scene, camera);
+}
+loop();
+addEventListener('resize', ()=>{
+  renderer.setSize(W(), H());
+  camera.aspect = W()/H(); camera.updateProjectionMatrix();
+});
+
+/* ============ trace loop ============ */
+const ghost = document.getElementById('ghost');
+/* both screens derive "which trace is being read" from the wall clock,
+   so the iPad (archive) and the iMac (machine) stay in sync with no server */
+const TRACE_DUR = 26000;
+let lastIdx = -1, currentEv = null;
+function showTrace(ev){
+  currentEv = ev;
+  breathUntil = performance.now() + 1500;
+  streamLog.length = 0;
+  traceCount++;
+  /* the rosetta lives in time: each trace is written in the next script */
+  MODE = 1 + ((traceCount - 1) % 3);
+  cols.forEach(c=>{ c.lines = []; });
+  modeHint.textContent = MODE_NAMES[MODE];
+  modeHint.classList.add('on');
+  setTimeout(()=>modeHint.classList.remove('on'), 3000);
+  if (traceCount % 3 === 1 && traceCount > 1){
+    drive = (drive + 1) % 3;
+    const el = document.getElementById('drivehint');
+    if (el) el.textContent = 'DRIVE · ' + DRIVES[drive];
+  }
+  ghost.style.opacity = 0;
+  setTimeout(()=>{
+    ghost.style.backgroundImage = `url("${encodeURI(ev.image)}")`;
+    ghost.style.opacity = .30;
+  }, 1600);
+  sampleImage(encodeURI(MODE === 2 ? (ev.machine_image || ev.image) : ev.image));
+  sampleDino(encodeURI(ev.machine_image || ev.image));
+  const frags = (ev.data?.raw_reading || '').split(/\.\s+/).filter(s=>s.length>25&&s.length<90);
+  const interp = ev.data?.first_interpretation;
+  glossQueue = frags.slice(0,3).map(f=>f.trim().replace(/\.?$/,'.'));
+  if (interp) glossQueue.push(interp);
+  pendingPrims = (ev.data?.spatial_reconstruction?.geometry?.primitives || []).slice();
+}
+window.currentEvHook = ()=>{
+  if (currentEv) sampleImage(encodeURI(MODE === 2 ? (currentEv.machine_image || currentEv.image) : currentEv.image));
+};
+function watchClock(){
+  const idx = Math.floor(Date.now() / TRACE_DUR) % events.length;
+  if (idx !== lastIdx){ lastIdx = idx; showTrace(events[idx]); }
+  setTimeout(watchClock, 700);
+}
+
+/* ============ boot ============ */
+let segments = {};
+fetch('segments.json?t=' + Date.now()).then(r=>r.json()).then(j=>{ segments = j; }).catch(()=>{});
+Promise.all([
+  fetch('replay_data.json?t=' + Date.now()).then(r=>r.json()),
+  fetch('assets/altair_message_1.txt?t=' + Date.now()).then(r=>r.text()),
+]).then(([rd, bin])=>{
+  events = rd.events;
+  binary = bin.replace(/[^01]/g, '');
+  cols.forEach(feedCol);
+  nextGloss();
+  watchClock();
+});
 </script>
 </body>
 </html>

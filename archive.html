@@ -8,208 +8,173 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>trace archive</title>
 <style>
-  :root{
-    --bg:#050607; --panel:#0a0b0d; --ink:#d2d6da; --dim:#6a727b; --line:#16181B;
-    --hot:#DADFE6; --warn:#C3401F;
-    --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
-  }
-  html,body{ margin:0; height:100%; background:var(--bg); color:var(--ink);
-    font-family:var(--mono); overflow:hidden; }
-
-  /* ---- chrome ---- */
-  .bar{ position:fixed; left:0; right:0; z-index:5; display:flex;
-    justify-content:space-between; align-items:baseline; gap:16px;
-    padding:0 16px; pointer-events:none; }
-  #topbar{ top:12px; }
-  #botbar{ bottom:10px; }
-  .label{ font-size:10px; letter-spacing:.22em; text-transform:uppercase;
-    color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  #title{ color:var(--hot); }
-  #title small{ color:var(--dim); letter-spacing:.22em; }
-  #counts{ text-align:right; }
-  #drift{ font-size:9px; letter-spacing:.08em; }
-  #legend{ font-size:9px; letter-spacing:.05em; text-align:right; line-height:1.7; }
-  #legend b{ color:var(--ink); font-weight:normal; }
-  #legend .u{ color:var(--warn); }
-  @media (max-width:700px){ #legend{ display:none; } #counts{ display:none; } }
-
-  /* ---- grid ---- */
-  #grid{ position:fixed; top:34px; right:0; bottom:30px; left:0; display:grid; gap:1px;
-    background:var(--bg); padding:1px; }
-  .cell{ position:relative; overflow:hidden; background:var(--panel);
-    border:1px solid var(--line); cursor:pointer; }
-  .cell img{ position:absolute; top:0; left:0; right:0; bottom:0;
-    object-fit:cover; display:block;
-    opacity:0; transition:opacity 1.6s ease; }
-  .cell img.instant{ transition-duration:.35s; }
-  .cell img.on{ opacity:1; }
-  .cell .tag{ position:absolute; left:6px; bottom:5px; z-index:3; font-size:8px;
-    letter-spacing:.18em; text-transform:uppercase; color:var(--hot);
-    background:rgba(5,6,7,.72); padding:2px 5px; opacity:0;
-    transition:opacity .25s ease; pointer-events:none; }
-  .cell:hover .tag{ opacity:1; }
-  .cell .tag .u{ color:var(--warn); }
-  /* scan shimmer during swap — restrained, no bloom */
-  .cell .scan{ position:absolute; top:0; right:0; bottom:0; left:0; z-index:2; pointer-events:none; opacity:0;
-    background:linear-gradient(180deg,transparent 0%,rgba(218,223,230,.14) 50%,transparent 100%);
-    background-size:100% 300%; }
-  .cell.swapping .scan{ opacity:1; animation:sweep 1.6s linear; }
-  @keyframes sweep{ from{ background-position:0 -100%; } to{ background-position:0 200%; } }
-
-  /* ---- lightbox ---- */
-  #box{ position:fixed; top:0; right:0; bottom:0; left:0; z-index:20; display:none; background:rgba(5,6,7,.94); }
-  #box.open{ display:flex; align-items:center; justify-content:center; flex-direction:column; gap:14px; }
-  #box img{ max-width:82vw; max-height:74vh; border:1px solid var(--line);
-    filter:grayscale(.08) contrast(1.02); }
-  #boxmeta{ font-size:10px; letter-spacing:.18em; text-transform:uppercase;
-    color:var(--dim); text-align:center; line-height:2; }
-  #boxmeta b{ color:var(--hot); font-weight:normal; }
-  #boxmeta .he{ display:block; direction:rtl; font-size:11px; letter-spacing:.04em;
-    text-transform:none; color:var(--ink); opacity:.85; }
+  html,body{ margin:0; height:100%; background:#050607; color:#d2d6da;
+    font-family:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace; overflow:hidden; }
+  #topbar{ position:fixed; top:0; left:0; right:0; height:44px; z-index:5;
+    background:#050607; }
+  #title{ position:absolute; top:15px; left:18px; font-size:13px;
+    letter-spacing:.26em; text-transform:uppercase; color:#DADFE6; }
+  #title a{ color:#6a727b; text-decoration:none; }
+  #grid{ position:fixed; top:44px; left:0; right:0; bottom:6px;
+    font-size:0; overflow:hidden; }
+  #grid img{ display:inline-block; object-fit:cover; margin:0; padding:0;
+    border:1px solid #16181B; box-sizing:border-box; background:#0a0b0d;
+    transition:opacity 2.5s ease; }
+  #grid.reading img{ opacity:.32; }
+  #grid.reading img.read{ opacity:1; }
+  #readmark{ position:fixed; display:none; z-index:6; pointer-events:none; }
+  #readmark .c{ position:absolute; width:22px; height:22px; border:2px solid #eef3f7; }
+  #readmark .c1{ top:0; left:0; border-right:none; border-bottom:none; }
+  #readmark .c2{ top:0; right:0; border-left:none; border-bottom:none; }
+  #readmark .c3{ bottom:0; left:0; border-right:none; border-top:none; }
+  #readmark .c4{ bottom:0; right:0; border-left:none; border-top:none; }
+  #readmark .lbl{ position:absolute; top:-24px; left:0; font-size:12px;
+    letter-spacing:.2em; color:#eef3f7; text-transform:uppercase; white-space:nowrap; }
+  #box{ position:fixed; top:0; left:0; right:0; bottom:0; z-index:20;
+    display:none; background:rgba(5,6,7,.96); text-align:center; }
+  #box.open{ display:block; }
+  #boximg{ margin-top:4vh; max-width:84vw; max-height:78vh; border:1px solid #16181B; }
+  #boxmeta{ margin-top:12px; font-size:10px; letter-spacing:.18em;
+    text-transform:uppercase; color:#6a727b; }
+  #boxmeta b{ color:#DADFE6; font-weight:normal; }
 </style>
 </head>
 <body>
 
-<div class="bar" id="topbar">
-  <div class="label" id="title"><a href="machine.html" style="color:inherit;text-decoration:none;color:#6a727b">MACHINE</a>&nbsp;&nbsp;<span style="color:#DADFE6">ARCHIVE</span> <small id="total">· —</small></div>
-  <div class="label" id="counts">—</div>
-</div>
-<div class="bar" id="botbar">
-  <div class="label" id="drift">DRIFT · —</div>
-  <div class="label" id="legend"><b>intended</b> → deposited signal &nbsp;·&nbsp; <span class="u">unintended</span> → residue</div>
-</div>
-
+<div id="topbar"><div id="title"><a href="machine.html">MACHINE</a>&nbsp;&nbsp;<span style="color:#DADFE6">ARCHIVE</span>&nbsp;&nbsp;<a href="recall.html" style="text-decoration:none;color:#6a727b">RECALL</a> <span id="total"></span></div></div>
 <div id="grid"></div>
-
 <div id="box"><img id="boximg" alt=""><div id="boxmeta"></div></div>
+<div id="readmark"><span class="c c1"></span><span class="c c2"></span><span class="c c3"></span><span class="c c4"></span><div class="lbl"></div></div>
 
 <script>
-const INT_DIR = 'archives/intentional/';
-const UNI_DIR = 'archives/not intentional/';
+/* the archive as the machine received it: one undifferentiated stream.
+   a shuffle bag guarantees every trace is eventually shown, none favoured. */
+var allPool = [], bag = [], bagPos = 0;
+var imgs = [];
+var t0 = Date.now();
 
-let pools = { intended:[], unintended:[] };
-let cells = [];
-let bias = 0.5;              // 0 = all unintended, 1 = all intended
-let t0 = performance.now();
-const DRIFT_PERIOD = 90_000; // full oscillation, slow
-const SWAP_EVERY   = 1400;   // one cell swap cadence (ms)
-
-function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
-
-function chooseArchive(){
-  return Math.random() < bias ? 'intended' : 'unintended';
+function reshuffle(){
+  bag = allPool.slice();
+  for (var i = bag.length - 1; i > 0; i--){
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = bag[i]; bag[i] = bag[j]; bag[j] = tmp;
+  }
+  bagPos = 0;
 }
-
-function srcFor(kind, file){
-  return encodeURI((kind==='intended' ? INT_DIR : UNI_DIR) + file);
+function nextItem(){
+  if (!bag.length) return null;
+  if (bagPos >= bag.length) reshuffle();
+  return bag[bagPos++];
 }
-
-// grid shows lightweight 640px thumbnails; the full image loads only in the lightbox
-function thumbSrc(kind, file){
-  const dir = kind==='intended' ? 'intentional' : 'not intentional';
-  const name = file.replace(/\.gif$/i, '.png');
-  return encodeURI('archives/thumbs/' + dir + '/' + name);
+function thumbSrc(d, f){
+  return encodeURI('archives/thumbs/' + d + '/' + f.replace(/\.gif$/i, '.png'));
+}
+function fullSrc(d, f){
+  return encodeURI('archives/' + d + '/' + f);
 }
 
 function buildGrid(){
-  const grid = document.getElementById('grid');
-  const w = grid.clientWidth, h = grid.clientHeight;
-  const target = 200; // desired cell size
-  const cols = Math.max(2, Math.round(w/target));
-  const rows = Math.max(2, Math.round(h/target));
-  grid.style.gridTemplateColumns = `repeat(${cols},1fr)`;
-  grid.style.gridTemplateRows = `repeat(${rows},1fr)`;
+  var grid = document.getElementById('grid');
   grid.innerHTML = '';
-  cells = [];
-  for(let i=0;i<cols*rows;i++){
-    const c = document.createElement('div');
-    c.className = 'cell';
-    c.innerHTML = '<div class="scan"></div><div class="tag"></div>';
-    c.addEventListener('click', ()=>openBox(c));
-    grid.appendChild(c);
-    cells.push(c);
+  imgs = [];
+  var w = grid.clientWidth, h = grid.clientHeight;
+  var cols = Math.max(2, Math.round(w / 210));
+  var rows = Math.max(2, Math.round(h / 210));
+  var cw = Math.floor(w / cols), ch = Math.floor(h / rows);
+  for (var i = 0; i < cols * rows; i++){
+    var img = document.createElement('img');
+    img.style.width = cw + 'px';
+    img.style.height = ch + 'px';
+    img.onclick = (function(el){ return function(){ openBox(el); }; })(img);
+    grid.appendChild(img);
+    imgs.push(img);
+    assign(img);
   }
-  // initial fill: fast — the page must not open onto a void
-  cells.forEach((c,i)=> setTimeout(()=>swapCell(c,true), i*40 + Math.random()*250));
 }
 
-function swapCell(cell, initial=false){
-  const kind = chooseArchive();
-  const file = pick(pools[kind]);
-  const img = new Image();
-  img.onload = ()=>{
-    const old = cell.querySelectorAll('img');
-    img.className = initial ? 'instant' : '';
-    cell.insertBefore(img, cell.querySelector('.tag'));
-    requestAnimationFrame(()=>{
-      img.classList.add('on');
-      if(!initial) cell.classList.add('swapping');
-      setTimeout(()=>{
-        old.forEach(o=>o.remove());
-        cell.classList.remove('swapping');
-      }, 1700);
-    });
-    cell.dataset.kind = kind;
-    cell.dataset.file = file;
-    cell.querySelector('.tag').innerHTML = kind==='intended'
-      ? 'INTENDED · ' + file
-      : '<span class="u">UNINTENDED</span> · ' + file;
-  };
-  img.onerror = ()=>{ img.onerror = null; img.src = srcFor(kind, file); };
-  img.src = thumbSrc(kind, file);
+function assign(img){
+  var item = nextItem();
+  if (!item) return;
+  img.setAttribute('data-dir', item.d);
+  img.setAttribute('data-file', item.f);
+  img.src = thumbSrc(item.d, item.f);
+  img.onerror = function(){ img.onerror = null; img.src = fullSrc(item.d, item.f); };
 }
 
 function tick(){
-  if(document.hidden){ setTimeout(tick, SWAP_EVERY); return; }
-  // slow sinusoidal drift between the two archives
-  const t = (performance.now()-t0)/DRIFT_PERIOD*2*Math.PI;
-  bias = 0.5 + 0.42*Math.sin(t);
-  const pct = Math.round(bias*100);
-  document.getElementById('drift').textContent =
-    `DRIFT · INTENDED ${pct}% · UNINTENDED ${100-pct}%`;
-  if(cells.length) swapCell(pick(cells));
-  // occasionally a small cluster turns over together — the "matrix" moment
-  if(Math.random() < 0.06){
-    const start = Math.floor(Math.random()*cells.length);
-    for(let k=0;k<4;k++){
-      const c = cells[(start+k)%cells.length];
-      setTimeout(()=>swapCell(c), k*260);
-    }
+  if (imgs.length){
+    var candidate = imgs[Math.floor(Math.random() * imgs.length)];
+    if (candidate !== readImg) assign(candidate);
   }
-  setTimeout(tick, SWAP_EVERY);
+  /* no categories left — only a slow breath in the tempo */
+  var breathe = Math.sin((Date.now() - t0) / 52000 * 2 * Math.PI);
+  setTimeout(tick, 2100 + 800 * breathe);
 }
 
-function openBox(cell){
-  if(!cell.dataset.file) return;
-  const box = document.getElementById('box');
-  document.getElementById('boximg').src = srcFor(cell.dataset.kind, cell.dataset.file);
-  document.getElementById('boxmeta').innerHTML =
-    (cell.dataset.kind==='intended'
-      ? '<b>INTENDED DEPOSIT</b> · ' : '<b style="color:var(--warn)">UNINTENDED RESIDUE</b> · ')
-    + cell.dataset.file
-    + '<span class="he">מקור לא מתועד — למילוי</span>';
-  box.classList.add('open');
+/* ---- synced reading: same wall-clock index as the machine screen ---- */
+var TRACE_DUR = 26000, READ_HOLD = 20000;
+var replayEvents = [], lastIdx = -1, readImg = null;
+function watchClock(){
+  if (replayEvents.length){
+    var idx = Math.floor(Date.now() / TRACE_DUR) % replayEvents.length;
+    if (idx !== lastIdx){ lastIdx = idx; highlight(replayEvents[idx]); }
+  }
+  setTimeout(watchClock, 700);
 }
-document.getElementById('box').addEventListener('click',
-  ()=>document.getElementById('box').classList.remove('open'));
-addEventListener('keydown', e=>{ if(e.key==='Escape')
-  document.getElementById('box').classList.remove('open'); });
+function placeMark(ev){
+  if (!readImg) return;
+  var r = readImg.getBoundingClientRect();
+  var m = document.getElementById('readmark');
+  m.style.left = r.left + 'px'; m.style.top = r.top + 'px';
+  m.style.width = r.width + 'px'; m.style.height = r.height + 'px';
+  m.querySelector('.lbl').textContent = 'READING · ' + (ev.trace_id || '');
+  m.style.display = 'block';
+}
+function highlight(ev){
+  if (readImg){ readImg.className = ''; readImg = null; }
+  var grid = document.getElementById('grid');
+  var el = imgs[Math.floor(imgs.length/2)] || imgs[0];
+  if (!el) return;
+  var parts = ev.image.split('/');
+  var d = parts.slice(1, -1).join('/'), f = parts[parts.length - 1];
+  el.setAttribute('data-dir', d);
+  el.setAttribute('data-file', f);
+  el.src = thumbSrc(d, f);
+  el.className = 'read';
+  readImg = el;
+  grid.className = 'reading';
+  placeMark(ev);
+  setTimeout(function(){
+    grid.className = '';
+    document.getElementById('readmark').style.display = 'none';
+    if (readImg){ readImg.className = ''; readImg = null; }
+  }, READ_HOLD);
+}
+fetch('replay_data.json?t=' + Date.now()).then(function(r){ return r.json(); }).then(function(j){
+  replayEvents = j.events; watchClock();
+});
 
-addEventListener('resize', ()=>{ clearTimeout(window.__rz);
-  window.__rz = setTimeout(buildGrid, 300); });
+function openBox(img){
+  var d = img.getAttribute('data-dir'), f = img.getAttribute('data-file');
+  if (!f) return;
+  document.getElementById('boximg').src = fullSrc(d, f);
+  document.getElementById('boxmeta').textContent = f;
+  document.getElementById('box').classList.add('open');
+}
+document.getElementById('box').onclick = function(){
+  document.getElementById('box').classList.remove('open');
+};
 
-fetch('archive_images.json')
-  .then(r=>r.json())
-  .then(j=>{
-    pools.intended = j['intentional'];
-    pools.unintended = j['not intentional'];
-    const total = pools.intended.length + pools.unintended.length;
-    document.getElementById('total').textContent = `· ${total} TRACES`;
-    document.getElementById('counts').textContent =
-      `INTENDED ${pools.intended.length} · UNINTENDED ${pools.unintended.length}`;
-    buildGrid();
-    tick();
-  });
+var rz;
+window.onresize = function(){ clearTimeout(rz); rz = setTimeout(buildGrid, 400); };
+
+fetch('archive_images.json?t=' + Date.now()).then(function(r){ return r.json(); }).then(function(j){
+  for (var d in j) j[d].forEach(function(f){ allPool.push({ d: d, f: f }); });
+  reshuffle();
+  document.getElementById('total').textContent = '· ' + allPool.length + ' TRACES';
+  buildGrid();
+  tick();
+});
 </script>
 </body>
 </html>
