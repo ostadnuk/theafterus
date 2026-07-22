@@ -136,6 +136,38 @@ setInterval(function(){
   });
 }, 160);
 
+/* the title lives between two scripts: letter by letter it slips into the
+   machine's marks and resolves back — translation never quite settles */
+var GL = ['▪','·','▮','◦'];
+function scriptify(el){
+  var text = el.textContent;
+  el.textContent = '';
+  var spans = [];
+  for (var i = 0; i < text.length; i++){
+    var s = document.createElement('span');
+    s.dataset.ch = text[i];
+    s.textContent = text[i] === ' ' ? ' ' : GL[Math.floor(Math.random()*GL.length)];
+    el.appendChild(s);
+    if (text[i] !== ' ') spans.push(s);
+  }
+  /* first: resolve out of the machine's script, letter by letter */
+  var order = spans.slice();
+  order.sort(function(){ return Math.random() - .5; });
+  order.forEach(function(s, i){
+    setTimeout(function(){ s.textContent = s.dataset.ch; }, 700 + i * 130);
+  });
+  /* then: forever, a letter here and there slips back */
+  setInterval(function(){
+    if (Math.random() < .55){
+      var s = spans[Math.floor(Math.random()*spans.length)];
+      s.textContent = GL[Math.floor(Math.random()*GL.length)];
+      setTimeout(function(){ s.textContent = s.dataset.ch; }, 350 + Math.random()*900);
+    }
+  }, 420);
+}
+scriptify(document.querySelector('h1'));
+document.querySelectorAll('nav a').forEach(scriptify);
+
 fetch('archive_images.json?t=' + Date.now()).then(function(r){ return r.json(); }).then(function(j){
   for (var d in j) j[d].forEach(function(f){ allPool.push({ d: d, f: f }); });
   reshuffle();
