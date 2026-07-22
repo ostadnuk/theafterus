@@ -44,16 +44,10 @@
   #pendot{ position:fixed; width:7px; height:7px; border-radius:50%;
     background:#eef3f7; z-index:30; pointer-events:none; display:none;
     transform:translate(-50%,-50%); }
-  #drivehint{ position:fixed; bottom:14px; right:16px; z-index:9; font-size:9px;
-    letter-spacing:.2em; color:#3f474f; text-transform:uppercase; pointer-events:none; }
-  nav{ position:fixed; top:14px; left:16px; z-index:10; display:flex; gap:16px;
-    font-size:11px; letter-spacing:.22em; text-transform:uppercase; }
-  nav a{ color:#5c6670; text-decoration:none; }
-  nav a.here{ color:#DADFE6; }
-  #modehint{ position:fixed; top:36px; left:16px; z-index:9; font-size:10px;
-    letter-spacing:.2em; color:var(--dim); opacity:0; transition:opacity .6s ease;
-    text-transform:uppercase; }
-  #modehint.on{ opacity:.9; }
+  #status{ position:fixed; bottom:16px; right:18px; z-index:9; font-size:13px;
+    letter-spacing:.22em; color:#6a727b; text-transform:uppercase;
+    pointer-events:none; text-align:right; line-height:2; }
+  #status b{ color:#DADFE6; font-weight:normal; }
 
   /* seam between the halves */
   #seam{ position:fixed; top:0; bottom:0; left:50%; width:1px;
@@ -68,10 +62,8 @@
   <div id="cols"></div>
   <div id="gloss"></div>
 </div>
-<nav><a class="here" href="machine.html">MACHINE</a><a href="recall.html">ARCHIVE</a></nav>
 <div id="pendot"></div>
-<div id="modehint"></div>
-<div id="drivehint">DRIVE · ARCHAEOLOGIST</div>
+<div id="status">SCRIPT · <b id="scriptName">ALTAIR BITSTREAM</b><br>DRIVE · <b id="driveName">ARCHAEOLOGIST</b></div>
 <div id="seam"></div>
 <div id="prediction"></div>
 
@@ -224,23 +216,20 @@ function feedCol(c){
   c.el.scrollTop = c.el.scrollHeight;
   setTimeout(()=>feedCol(c), c.speed);
 }
-const modeHint = document.getElementById('modehint');
+const scriptName = document.getElementById('scriptName');
+const driveName = document.getElementById('driveName');
+function showScript(){ scriptName.textContent = (MODE_NAMES[MODE]||'').replace('SYNTAX · ',''); }
 addEventListener('keydown', e=>{
   if (e.key === '0'){
     GLOSS_ON = !GLOSS_ON;
     glossEl.classList.remove('on');
-    modeHint.textContent = GLOSS_ON ? 'TRANSLATION · ON' : 'TRANSLATION · OFF';
-    modeHint.classList.add('on');
-    setTimeout(()=>modeHint.classList.remove('on'), 2600);
     return;
   }
   if (['1','2','3','4'].includes(e.key)){
     MODE = +e.key;
     cols.forEach(c=>{ c.lines = []; });
     if (window.currentEvHook) window.currentEvHook();
-    modeHint.textContent = MODE_NAMES[MODE];
-    modeHint.classList.add('on');
-    setTimeout(()=>modeHint.classList.remove('on'), 2600);
+    showScript();
   }
 });
 
@@ -629,8 +618,9 @@ function dinoColorOf(blob){
 function spawnPrim(p, poi, blob){
   const scl = (p.approx_scale||'0.3,0.3,0.3').split(',').map(Number);
   const posY = (p.approx_position||'0.5,0.2,0.5').split(',').map(Number)[1];
-  /* the eye's coordinates become the structure's place in the world */
-  const x = (poi.x - .5) * 10, z = (poi.y - .5) * 10, y = Math.max(.05, posY * 3);
+  /* the DETECTED OBJECT's centre becomes the structure's place in the world */
+  const bcx = blob.x + blob.w / 2, bcy = blob.y + blob.h / 2;
+  const x = (bcx - .5) * 10, z = (bcy - .5) * 10, y = Math.max(.05, posY * 3);
   /* footprint measured at the detection dwell */
   const sx = Math.max(.25, blob.w * 6), sz = Math.max(.25, blob.h * 6);
   const sy = Math.max(.08, scl[1] * 4);
@@ -732,7 +722,7 @@ function spawnPrim(p, poi, blob){
   }
   if (role === 'opening') obj.rotation.y = Math.random() * Math.PI;
   obj.userData.bornMs = performance.now() + 1200;  // the pen crosses the seam first
-  penTravel = { nx: poi.x, ny: poi.y, obj, start: performance.now(), dur: 1200 };
+  penTravel = { nx: bcx, ny: bcy, obj, start: performance.now(), dur: 1200 };
   obj.userData.finalColor = mat.color.clone();
   obj.userData.baseOpacity = mat.opacity;
   mat.opacity = 0;
@@ -750,7 +740,7 @@ function spawnPrim(p, poi, blob){
     window.__lastFocusEnd = focusUntil;
   }
   pushLog('> ' + V('assert') + ' ' + (p.type||'box') + ' role=' + R(p.role) + ' dist=' + dist);
-  pushLog('> ' + V('build') + ' @ ⟨' + poi.x.toFixed(3) + ' ' + poi.y.toFixed(3) + '⟩');
+  pushLog('> ' + V('build') + ' @ ⟨' + bcx.toFixed(3) + ' ' + bcy.toFixed(3) + '⟩');
   if (built.length > 46){
     const old = built.shift();
     scene.remove(old);
@@ -877,13 +867,10 @@ function showTrace(ev){
   /* the rosetta lives in time: each trace is written in the next script */
   MODE = 1 + ((traceCount - 1) % 3);
   cols.forEach(c=>{ c.lines = []; });
-  modeHint.textContent = MODE_NAMES[MODE];
-  modeHint.classList.add('on');
-  setTimeout(()=>modeHint.classList.remove('on'), 3000);
+  showScript();
   if (traceCount % 3 === 1 && traceCount > 1){
     drive = (drive + 1) % 3;
-    const el = document.getElementById('drivehint');
-    if (el) el.textContent = 'DRIVE · ' + DRIVES[drive];
+    driveName.textContent = DRIVES[drive];
   }
   ghost.style.opacity = 0;
   setTimeout(()=>{
